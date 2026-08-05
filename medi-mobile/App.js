@@ -1,20 +1,16 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import './src/i18n'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { AuthProvider } from './src/context/AuthContext'
+import { ThemeProvider } from './src/context/ThemeContext'
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
-  );
+    <SafeAreaProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          {/* Navigation goes here in Phase 2 */}
+        </ThemeProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
+  )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
