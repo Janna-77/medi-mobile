@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { View, StyleSheet, Animated } from 'react-native'
 import Svg, { Polyline, Circle } from 'react-native-svg'
+import { useTheme } from '../context/ThemeContext'
 
 const W        = 210
 const H        = 78
@@ -39,13 +40,6 @@ function ptsStr(startIdx, endIdx) {
     let s = ''
     for (let i = startIdx; i <= endIdx; i++) s += `${ECG_PTS[i][0]},${ECG_PTS[i][1]} `
     return s.trim()
-}
-
-function getColor(role) {
-    return role === 'guardian'  ? '#ff8cc8'
-         : role === 'doctor'    ? '#a070e8'
-         : role === 'dependent' ? '#16a34a'
-         : '#4ab8d8'
 }
 
 function useECGLoop(active) {
@@ -101,9 +95,8 @@ function useECGLoop(active) {
     return frame
 }
 
-function ECGTrace({ role }) {
+function ECGTrace({ color }) {
     const { headIdx, segs } = useECGLoop(true)
-    const color = getColor(role)
     const tx = ECG_PTS[headIdx]?.[0] ?? 0
     const ty = ECG_PTS[headIdx]?.[1] ?? BASELINE
 
@@ -131,6 +124,8 @@ function ECGTrace({ role }) {
 // ─── Full-screen loading overlay ──────────────────────────────────────────────
 
 export default function LoadingOverlay({ visible, role }) {
+    const { theme } = useTheme()
+
     // Start fully opaque so there's no fade-in flash on initial mount
     const fadeAnim = useRef(new Animated.Value(visible ? 1 : 0)).current
     const [show, setShow] = useState(visible)
@@ -153,14 +148,9 @@ export default function LoadingOverlay({ visible, role }) {
 
     if (!show) return null
 
-    const bgColor = role === 'guardian'  ? '#1a0a14'
-                  : role === 'doctor'    ? '#0f0820'
-                  : role === 'dependent' ? '#0a1a0a'
-                  : '#081c2f'
-
     return (
-        <Animated.View style={[styles.overlay, { backgroundColor: bgColor, opacity: fadeAnim }]}>
-            <ECGTrace role={role} />
+        <Animated.View style={[styles.overlay, { backgroundColor: theme.pageBg, opacity: fadeAnim }]}>
+            <ECGTrace color={theme.accent} />
         </Animated.View>
     )
 }
@@ -168,9 +158,10 @@ export default function LoadingOverlay({ visible, role }) {
 // ─── Inline ECG spinner ───────────────────────────────────────────────────────
 
 export function ECGSpinner({ role }) {
+    const { theme } = useTheme()
     return (
         <View style={styles.spinner}>
-            <ECGTrace role={role} />
+            <ECGTrace color={theme.accent} />
         </View>
     )
 }

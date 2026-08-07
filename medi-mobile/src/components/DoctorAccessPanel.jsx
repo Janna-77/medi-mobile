@@ -4,6 +4,7 @@ import {
     ScrollView, Alert, StyleSheet, Pressable,
 } from 'react-native'
 import api from '../api/axios'
+import { useTheme } from '../context/ThemeContext'
 
 const C = {
     cardBg:      'rgba(255,255,255,0.05)',
@@ -24,6 +25,7 @@ const SUMMARY_LABELS = {
 }
 
 export default function DoctorAccessPanel() {
+    const { theme } = useTheme()
     const [accessList, setAccessList] = useState([])
     const [searchQuery, setSearchQuery] = useState('')
     const [searchResults, setSearchResults] = useState([])
@@ -108,7 +110,7 @@ export default function DoctorAccessPanel() {
             {/* Search */}
             <View style={styles.card}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                    <Text style={styles.cardTitle}>Add a Doctor</Text>
+                    <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>Add a Doctor</Text>
                     <DisclaimerTooltip />
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -118,7 +120,7 @@ export default function DoctorAccessPanel() {
                         onSubmitEditing={handleSearch}
                         placeholder="Name, specialization, or clinic"
                         placeholderTextColor={C.textMuted}
-                        style={styles.input}
+                        style={[styles.input, { color: theme.textPrimary }]}
                         returnKeyType="search"
                         autoCapitalize="none"
                     />
@@ -136,7 +138,7 @@ export default function DoctorAccessPanel() {
                         {filteredResults.map(doc => (
                             <View key={doc.user_id} style={styles.resultRow}>
                                 <View style={{ flex: 1 }}>
-                                    <Text style={styles.doctorName}>Dr. {doc.full_name}</Text>
+                                    <Text style={[styles.doctorName, { color: theme.textPrimary }]}>Dr.{doc.full_name}</Text>
                                     <Text style={styles.doctorMeta}>
                                         {doc.specialization}{doc.clinic_name ? ` · ${doc.clinic_name}` : ''}
                                     </Text>
@@ -152,7 +154,7 @@ export default function DoctorAccessPanel() {
 
             {/* Access list */}
             <View style={styles.card}>
-                <Text style={styles.cardTitle}>Doctors with Access</Text>
+                <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>Doctors with Access</Text>
 
                 {loading ? (
                     <Text style={styles.emptyText}>Loading…</Text>
@@ -164,7 +166,7 @@ export default function DoctorAccessPanel() {
                             <View key={access.access_id} style={styles.accessRow}>
                                 <View style={{ flex: 1 }}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 2 }}>
-                                        <Text style={styles.doctorName}>Dr. {access.doctor_name}</Text>
+                                        <Text style={[styles.doctorName, { color: theme.textPrimary }]}>Dr.{access.doctor_name}</Text>
                                         {access.status === 'pending' && (
                                             <View style={styles.badgePending}><Text style={styles.badgeText}>Pending</Text></View>
                                         )}
@@ -212,6 +214,8 @@ export default function DoctorAccessPanel() {
 }
 
 function OptionsModal({ doctorName, hiddenItems, generatedTypes, onToggle, onSave, onClose, loading }) {
+    const { theme } = useTheme()
+
     const allItems = [
         { key: 'records', label: 'Medical Records' },
         { key: 'phone',   label: 'Phone Number' },
@@ -221,10 +225,10 @@ function OptionsModal({ doctorName, hiddenItems, generatedTypes, onToggle, onSav
     return (
         <Modal visible transparent animationType="fade" onRequestClose={onClose}>
             <Pressable style={mStyles.overlay} onPress={onClose}>
-                <Pressable style={mStyles.box} onPress={() => {}}>
-                    <Text style={mStyles.title}>Privacy Options</Text>
-                    <Text style={mStyles.subtitle}>Dr. {doctorName}</Text>
-                    <Text style={mStyles.hint}>Toggle items to hide them from this doctor.</Text>
+                <Pressable style={[mStyles.box, { backgroundColor: theme.modalBg, borderColor: theme.modalBorder }]} onPress={() => {}}>
+                    <Text style={[mStyles.title, { color: theme.modalText }]}>Privacy Options</Text>
+                    <Text style={[mStyles.subtitle, { color: theme.textSecondary }]}>Dr. {doctorName}</Text>
+                    <Text style={[mStyles.hint, { color: theme.textMuted }]}>Toggle items to hide them from this doctor.</Text>
 
                     <ScrollView style={{ maxHeight: 240 }} showsVerticalScrollIndicator={false}>
                         <View style={{ gap: 8, marginBottom: 20 }}>
@@ -234,10 +238,10 @@ function OptionsModal({ doctorName, hiddenItems, generatedTypes, onToggle, onSav
                                     <TouchableOpacity
                                         key={item.key}
                                         onPress={() => onToggle(item.key)}
-                                        style={[mStyles.privacyRow, isHidden && mStyles.privacyRowHidden]}
+                                        style={[mStyles.privacyRow, { backgroundColor: theme.modalInputBg, borderColor: theme.modalBorder }, isHidden && mStyles.privacyRowHidden]}
                                         activeOpacity={0.75}
                                     >
-                                        <Text style={[mStyles.privacyLabel, isHidden && { color: '#e53e3e' }]}>{item.label}</Text>
+                                        <Text style={[mStyles.privacyLabel, { color: theme.modalText }, isHidden && { color: '#e53e3e' }]}>{item.label}</Text>
                                         <View style={[mStyles.privacyBadge, isHidden && mStyles.privacyBadgeHidden]}>
                                             <Text style={[mStyles.privacyBadgeText, isHidden && { color: '#e53e3e' }]}>
                                                 {isHidden ? 'Hidden' : 'Visible'}
@@ -250,8 +254,8 @@ function OptionsModal({ doctorName, hiddenItems, generatedTypes, onToggle, onSav
                     </ScrollView>
 
                     <View style={{ flexDirection: 'row', gap: 10 }}>
-                        <TouchableOpacity style={[mStyles.btn, mStyles.cancelBtn]} onPress={onClose}>
-                            <Text style={{ color: C.textSub, fontWeight: '700', fontSize: 14 }}>Cancel</Text>
+                        <TouchableOpacity style={[mStyles.btn, mStyles.cancelBtn, { borderColor: theme.modalBorder, backgroundColor: theme.modalInputBg }]} onPress={onClose}>
+                            <Text style={{ color: theme.textSecondary, fontWeight: '700', fontSize: 14 }}>Cancel</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[mStyles.btn, mStyles.saveBtn, loading && { opacity: 0.7 }]}
@@ -349,7 +353,7 @@ const styles = StyleSheet.create({
 })
 
 const mStyles = StyleSheet.create({
-    overlay: { flex: 1, backgroundColor: 'rgba(14,22,36,0.6)', justifyContent: 'center', alignItems: 'center' },
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', alignItems: 'center' },
     box: {
         backgroundColor: C.modalBg, borderRadius: 20, padding: 28,
         width: 340, maxWidth: '90%', borderWidth: 1, borderColor: C.inputBorder,

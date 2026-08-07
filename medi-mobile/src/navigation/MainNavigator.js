@@ -15,6 +15,7 @@ import ReportSmth from '../screens/shared/ReportSmth'
 import About from '../screens/shared/About'
 
 // Upgrade screens reachable from within the app
+import AddDependent from '../screens/auth/AddDependent'
 import IndependentAddDoctor from '../screens/auth/IndependentAddDoctor'
 import IndependentAddGuardian from '../screens/auth/IndependentAddGuardian'
 import GuardianAddDoctor from '../screens/auth/GuardianAddDoctor'
@@ -60,7 +61,7 @@ export default function MainNavigator() {
             <Stack.Screen name="GuardianHome" component={GuardianHome} />
             <Stack.Screen name="GuardianSettings" component={Soon} />
             <Stack.Screen name="GuardianProfile" component={GuardianProfile} />
-            <Stack.Screen name="AddDependent" component={Soon} />
+            <Stack.Screen name="AddDependent" component={AddDependent} />
             <Stack.Screen name="GuardianRecords" component={Soon} />
             <Stack.Screen name="GuardianAI" component={Soon} />
 

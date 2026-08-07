@@ -1,13 +1,15 @@
 import { View, StyleSheet, ActivityIndicator } from 'react-native'
 import { NavigationContainer } from '@react-navigation/native'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
 import AuthNavigator from './AuthNavigator'
 import MainNavigator from './MainNavigator'
 
 export default function AppNavigator() {
     const { user, loading } = useAuth()
+    const { themeReady } = useTheme()
 
-    if (loading) {
+    if (loading || !themeReady) {
         return (
             <View style={styles.loading}>
                 <ActivityIndicator size="large" color="#2596be" />

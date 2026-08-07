@@ -1,6 +1,6 @@
 import {
     View, Text, TouchableOpacity, ScrollView,
-    StyleSheet, SafeAreaView,
+    SafeAreaView,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { Ionicons } from '@expo/vector-icons'
@@ -9,26 +9,57 @@ import useIndependentDashboard from '../../hooks/useIndependentDashboard'
 import Header from '../../components/Header'
 import LoadingOverlay from '../../components/LoadingOverlay'
 import BottomNav from '../../components/BottomNav'
-
-// Dark mode colors — mirrors web --indep-* CSS vars
-const C = {
-    bg:              '#141e2d',
-    cardBg:          'rgba(255,255,255,0.05)',
-    cardBorder:      'rgba(50,100,150,0.22)',
-    cardBorderActive:'rgba(0,168,232,0.38)',
-    text:            '#d8eaf6',
-    textSub:         '#5a90b5',
-    textMuted:       '#3d6882',
-    accent:          '#1e90c8',
-    accentLabel:     '#4ab8d8',
-    ctaFrom:         '#006fa6',
-    ctaTo:           '#00a8e8',
-}
+import { useTheme } from '../../context/ThemeContext'
 
 const SUMMARY_LABELS = {
     SOAP: 'SOAP Note',
     referral: 'Referral Letter',
     report: 'Medical Report',
+}
+
+function makeC(theme) {
+    return {
+        bg:              theme.pageBg,
+        cardBg:          theme.cardBg,
+        cardBorder:      theme.cardBorder,
+        cardBorderActive:theme.cardBorderActive,
+        text:            theme.textPrimary,
+        textSub:         theme.textSecondary,
+        textMuted:       theme.textMuted,
+        accent:          theme.accent,
+        accentLabel:     theme.accentLabel,
+    }
+}
+
+function getStyles(C) {
+    return {
+        safe:         { flex: 1, backgroundColor: C.bg },
+        scroll:       { flex: 1 },
+        content:      { padding: 20, paddingBottom: 12 },
+
+        greetingBlock:{ marginBottom: 28 },
+        dateLabel:    { fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 },
+        greeting:     { fontSize: 26, fontFamily: 'Calistoga', letterSpacing: -0.2, lineHeight: 34 },
+
+        statRow:      { gap: 12, paddingRight: 4 },
+        statCard:     { minWidth: 120, borderWidth: 1, borderRadius: 16, padding: 16, backgroundColor: C.cardBg, borderColor: C.cardBorder },
+        statValue:    { fontSize: 24, fontWeight: '700', marginBottom: 4, lineHeight: 28, color: C.accent },
+        statLabel:    { fontSize: 12, fontWeight: '500', marginBottom: 2, color: C.text, fontFamily: 'Georgia' },
+        statSub:      { fontSize: 11, color: C.textSub },
+
+        ctaWrap:      { borderRadius: 18, overflow: 'hidden' },
+        cta:          { borderRadius: 18, padding: 20, gap: 4 },
+        ctaLabel:     { fontSize: 16, fontWeight: '700', color: 'white' },
+        ctaSub:       { fontSize: 12, color: 'rgba(255,255,255,0.82)' },
+
+        sectionLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12, color: C.textSub },
+        emptyText:    { fontSize: 14, textAlign: 'center', marginTop: 40, color: C.textMuted },
+
+        actCard:      { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, padding: 13, backgroundColor: C.cardBg, borderColor: C.cardBorder },
+        actIconWrap:  { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0, backgroundColor: `${C.accent}1a` },
+        actTitle:     { fontWeight: '600', fontSize: 13, marginBottom: 2, color: C.text },
+        actSub:       { fontSize: 11, color: C.textSub },
+    }
 }
 
 function getGreeting() {
@@ -47,6 +78,10 @@ function fmtShort(d) {
 
 export default function IndependentHome() {
     const navigation = useNavigation()
+    const { theme } = useTheme()
+    const C = makeC(theme)
+    const styles = getStyles(C)
+
     const {
         loading, profile,
         totalRecords, lastUpload, doctorsCount, latestSummary,
@@ -104,7 +139,7 @@ export default function IndependentHome() {
                 {/* Recent activity */}
                 {recentActivity.length > 0 && (
                     <View style={{ marginTop: 32 }}>
-                        <Text style={[styles.sectionLabel, { color: C.textSub }]}>Recent Activity</Text>
+                        <Text style={styles.sectionLabel}>Recent Activity</Text>
                         <View style={{ gap: 8 }}>
                             {recentActivity.map((item, i) => (
                                 <ActivityCard key={i} item={item} navigation={navigation} />
@@ -114,7 +149,7 @@ export default function IndependentHome() {
                 )}
 
                 {!loading && recentActivity.length === 0 && (
-                    <Text style={[styles.emptyText, { color: C.textMuted }]}>
+                    <Text style={styles.emptyText}>
                         No activity yet. Start by uploading a record.
                     </Text>
                 )}
@@ -127,42 +162,40 @@ export default function IndependentHome() {
 }
 
 function StatCard({ label, value, sub, onPress }) {
+    const { theme } = useTheme()
+    const C = makeC(theme)
+    const styles = getStyles(C)
     return (
-        <TouchableOpacity
-            onPress={onPress}
-            style={[styles.statCard, { backgroundColor: C.cardBg, borderColor: C.cardBorder }]}
-            activeOpacity={0.75}
-        >
-            <Text style={[styles.statValue, { color: C.accent }]}>{value}</Text>
-            <Text style={[styles.statLabel, { color: C.text, fontFamily: 'Georgia' }]}>{label}</Text>
-            <Text style={[styles.statSub, { color: C.textSub }]}>{sub}</Text>
+        <TouchableOpacity onPress={onPress} style={styles.statCard} activeOpacity={0.75}>
+            <Text style={styles.statValue}>{value}</Text>
+            <Text style={styles.statLabel}>{label}</Text>
+            <Text style={styles.statSub}>{sub}</Text>
         </TouchableOpacity>
     )
 }
 
 function CTAButton({ label, sub, onPress }) {
     return (
-        <TouchableOpacity onPress={onPress} style={styles.ctaWrap} activeOpacity={0.8}>
+        <TouchableOpacity onPress={onPress} style={{ borderRadius: 18, overflow: 'hidden' }} activeOpacity={0.8}>
             <LinearGradient
                 colors={['#006fa6', '#00a8e8']}
                 start={{ x: 0.13, y: 0.13 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.cta}
+                style={{ borderRadius: 18, padding: 20, gap: 4 }}
             >
-                <Text style={styles.ctaLabel}>{label}</Text>
-                {sub ? <Text style={styles.ctaSub}>{sub}</Text> : null}
+                <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>{label}</Text>
+                {sub ? <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.82)' }}>{sub}</Text> : null}
             </LinearGradient>
         </TouchableOpacity>
     )
 }
 
 function ActivityCard({ item, navigation }) {
-    const iconMap = {
-        record:  { name: 'document-text-outline', color: C.accent },
-        summary: { name: 'list-outline',           color: C.accent },
-        doctor:  { name: 'person-circle-outline',  color: C.accent },
-    }
-    const icon = iconMap[item.type] ?? { name: 'ellipse-outline', color: C.accent }
+    const { theme } = useTheme()
+    const C = makeC(theme)
+    const styles = getStyles(C)
+
+    const iconName = { record: 'document-text-outline', summary: 'list-outline', doctor: 'person-circle-outline' }[item.type] ?? 'ellipse-outline'
 
     const getInfo = () => {
         const fileName = item.data?.file_url?.split('/').pop()?.substring(37) || 'Medical Record'
@@ -177,46 +210,17 @@ function ActivityCard({ item, navigation }) {
     return (
         <TouchableOpacity
             onPress={() => navigation.navigate(info.screen)}
-            style={[styles.actCard, { backgroundColor: C.cardBg, borderColor: C.cardBorder }]}
+            style={styles.actCard}
             activeOpacity={0.75}
         >
-            <View style={[styles.actIconWrap, { backgroundColor: 'rgba(0,168,232,0.1)' }]}>
-                <Ionicons name={icon.name} size={16} color={icon.color} />
+            <View style={styles.actIconWrap}>
+                <Ionicons name={iconName} size={16} color={C.accent} />
             </View>
             <View style={{ flex: 1 }}>
-                <Text style={[styles.actTitle, { color: C.text }]} numberOfLines={1}>{info.title}</Text>
-                <Text style={[styles.actSub, { color: C.textSub }]}>{info.sub}</Text>
+                <Text style={styles.actTitle} numberOfLines={1}>{info.title}</Text>
+                <Text style={styles.actSub}>{info.sub}</Text>
             </View>
             <Ionicons name="chevron-forward" size={14} color={C.textSub} />
         </TouchableOpacity>
     )
 }
-
-const styles = StyleSheet.create({
-    safe:         { flex: 1, backgroundColor: C.bg },
-    scroll:       { flex: 1 },
-    content:      { padding: 20, paddingBottom: 12 },
-
-    greetingBlock:{ marginBottom: 28 },
-    dateLabel:    { fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 },
-    greeting:     { fontSize: 26, fontFamily: 'Calistoga', letterSpacing: -0.2, lineHeight: 34 },
-
-    statRow:      { gap: 12, paddingRight: 4 },
-    statCard:     { minWidth: 120, borderWidth: 1, borderRadius: 16, padding: 16 },
-    statValue:    { fontSize: 24, fontWeight: '700', marginBottom: 4, lineHeight: 28 },
-    statLabel:    { fontSize: 12, fontWeight: '500', marginBottom: 2 },
-    statSub:      { fontSize: 11 },
-
-    ctaWrap:      { borderRadius: 18, overflow: 'hidden' },
-    cta:          { borderRadius: 18, padding: 20, gap: 4 },
-    ctaLabel:     { fontSize: 16, fontWeight: '700', color: 'white' },
-    ctaSub:       { fontSize: 12, color: 'rgba(255,255,255,0.82)' },
-
-    sectionLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12 },
-    emptyText:    { fontSize: 14, textAlign: 'center', marginTop: 40 },
-
-    actCard:      { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, padding: 13 },
-    actIconWrap:  { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-    actTitle:     { fontWeight: '600', fontSize: 13, marginBottom: 2 },
-    actSub:       { fontSize: 11 },
-})

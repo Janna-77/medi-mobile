@@ -3,30 +3,45 @@ import {
     View, Text, TouchableOpacity, TextInput, ScrollView,
     StyleSheet, Alert, Modal, Pressable, Image, Switch, SafeAreaView,
 } from 'react-native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useNavigation } from '@react-navigation/native'
 import * as ImagePicker from 'expo-image-picker'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useAuth } from '../../context/AuthContext'
+import { useTheme } from '../../context/ThemeContext'
 import api from '../../api/axios'
 import Header from '../../components/Header'
 import LoadingOverlay from '../../components/LoadingOverlay'
 
-const C = {
-    bg:           '#141e2d',
-    cardBg:       'rgba(255,255,255,0.05)',
-    cardBorder:   'rgba(120,60,180,0.22)',
-    text:         '#ede8ff',
-    textSub:      '#9070c0',
-    textMuted:    '#6a50a0',
-    accent:       '#a070e8',
-    accentLabel:  '#b890f0',
-    modalBg:      '#1a1228',
-    modalBorder:  'rgba(120,60,180,0.35)',
-    modalText:    '#ede8ff',
-    modalSubtext: '#9070c0',
-    inputBg:      'rgba(255,255,255,0.07)',
-}
+// ── Theme helpers ────────────────────────────────────────────────────────────
+
+const makeC = (theme) => ({
+    bg: theme.pageBg,
+    cardBg: theme.cardBg,
+    cardBorder: theme.cardBorder,
+    text: theme.textPrimary,
+    textSub: theme.textSecondary,
+    textMuted: theme.textMuted,
+    accent: theme.accent,
+    accentLabel: theme.accentLabel,
+    modalBg: theme.modalBg,
+    modalBorder: theme.modalBorder,
+    modalText: theme.modalText,
+    modalSubtext: theme.modalSubtext,
+    modalInputBg: theme.modalInputBg,
+})
+
+const getMStyles = (C) => ({
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', alignItems: 'center' },
+    box: { backgroundColor: C.modalBg, borderRadius: 20, padding: 28, width: 340, maxWidth: '90%', borderWidth: 1, borderColor: C.modalBorder },
+    title: { color: C.modalText, fontWeight: '700', fontSize: 17, marginBottom: 20 },
+    text: { color: C.modalText, fontSize: 14 },
+    input: { borderWidth: 1.5, borderColor: C.modalBorder, borderRadius: 8, padding: 11, fontSize: 14, color: C.modalText, backgroundColor: C.modalInputBg },
+    btn: { flex: 1, borderRadius: 10, overflow: 'hidden' },
+    cancelBtn: { borderWidth: 1.5, borderColor: C.modalBorder, backgroundColor: C.modalInputBg, alignItems: 'center', justifyContent: 'center', padding: 11 },
+    primaryBtn: { padding: 11, alignItems: 'center', borderRadius: 10 },
+    primaryBtnText: { color: 'white', fontWeight: '700', fontSize: 14 },
+    otpBox: { width: 44, height: 52, borderRadius: 8, borderWidth: 1.5, borderColor: C.modalBorder, backgroundColor: C.modalInputBg, color: C.modalText, fontSize: 20, fontWeight: '700' },
+})
 
 function validatePassword(pw) {
     const errors = []
@@ -38,14 +53,19 @@ function validatePassword(pw) {
     return errors
 }
 
+// ── Main screen ──────────────────────────────────────────────────────────────
+
 export default function DoctorProfile() {
     const navigation = useNavigation()
     const { logout, switchAccount } = useAuth()
+    const { theme, mode, toggleMode } = useTheme()
+    const C = makeC(theme)
+    const lightMode = mode === 'light'
+    const sep = { height: 0.7, backgroundColor: C.cardBorder, marginHorizontal: 10 }
 
     const [loading, setLoading] = useState(true)
     const [profile, setProfile] = useState(null)
     const [accountStatus, setAccountStatus] = useState(null)
-    const [lightMode, setLightMode] = useState(false)
     const [modeLoading, setModeLoading] = useState(false)
     const [detailModal, setDetailModal] = useState(null)
     const [switchingRole, setSwitchingRole] = useState(null)
@@ -53,7 +73,6 @@ export default function DoctorProfile() {
     const [avatarMenuOpen, setAvatarMenuOpen] = useState(false)
 
     useEffect(() => {
-        AsyncStorage.getItem('medi_mode').then(v => setLightMode(v === 'light'))
         Promise.allSettled([
             api.get('/users/profile'),
             api.get('/upgrade/status'),
@@ -64,12 +83,10 @@ export default function DoctorProfile() {
     }, [])
 
     const handleModeToggle = async () => {
-        const newMode = !lightMode
-        setLightMode(newMode)
-        const modeStr = newMode ? 'light' : 'dark'
-        await AsyncStorage.setItem('medi_mode', modeStr)
+        const newMode = mode === 'light' ? 'dark' : 'light'
+        await toggleMode()
         setModeLoading(true)
-        try { await api.patch('/users/mode', { mode: modeStr }) } catch {}
+        try { await api.patch('/users/mode', { mode: newMode }) } catch { }
         finally { setModeLoading(false) }
     }
 
@@ -84,11 +101,9 @@ export default function DoctorProfile() {
         try {
             const formData = new FormData()
             formData.append('file', { uri: asset.uri, type: 'image/jpeg', name: 'avatar.jpg' })
-            const res = await api.post('/users/profile-picture', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            })
+            const res = await api.post('/users/profile-picture', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
             setProfile(prev => ({ ...prev, profile_picture_url: res.data.url }))
-        } catch {}
+        } catch { }
         finally { setAvatarUploading(false) }
     }
 
@@ -97,7 +112,7 @@ export default function DoctorProfile() {
         try {
             await api.delete('/users/profile-picture')
             setProfile(prev => ({ ...prev, profile_picture_url: null }))
-        } catch {}
+        } catch { }
     }
 
     const handleLogout = () => {
@@ -107,27 +122,34 @@ export default function DoctorProfile() {
         ])
     }
 
+    const roleHome = { independent: 'IndependentHome', guardian: 'GuardianHome', doctor: 'DoctorHome' }
+
     const handleSwitch = async (role) => {
         setSwitchingRole(role)
         try {
             await switchAccount(role)
+            navigation.reset({ index: 0, routes: [{ name: roleHome[role] }] })
         } catch (err) {
             Alert.alert('Error', err.message || 'Failed to switch')
+        } finally {
             setSwitchingRole(null)
         }
     }
 
     const initials = profile?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?'
 
+    // Doctor-specific gradient (doesn't change with mode)
+    const avatarGrad = ['#5a1e96', '#8b5cf6']
+
     return (
-        <SafeAreaView style={styles.root}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
             <Header role="doctor" />
             <View style={{ flex: 1 }}>
                 <LoadingOverlay visible={loading} role="doctor" />
-                <ScrollView contentContainerStyle={styles.content}>
+                <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }}>
 
                     {/* Avatar + name */}
-                    <View style={styles.avatarSection}>
+                    <View style={{ alignItems: 'center', marginBottom: 28, gap: 12 }}>
                         <TouchableOpacity
                             activeOpacity={0.8}
                             onPress={() => {
@@ -140,33 +162,31 @@ export default function DoctorProfile() {
                                 {profile?.profile_picture_url ? (
                                     <Image source={{ uri: profile.profile_picture_url }} style={styles.avatarImg} />
                                 ) : (
-                                    <LinearGradient
-                                        colors={['#5a1e96', '#8b5cf6']}
-                                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                        style={styles.avatarPlaceholder}
-                                    >
+                                    <LinearGradient colors={avatarGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.avatarPlaceholder}>
                                         <Text style={styles.avatarInitials}>{avatarUploading ? '…' : initials}</Text>
                                     </LinearGradient>
                                 )}
-                                <View style={styles.avatarOverlay}>
-                                    <Text style={{ fontSize: 18 }}>📷</Text>
-                                </View>
+                                {avatarMenuOpen && (
+                                    <View style={styles.avatarOverlay}>
+                                        <Text style={{ fontSize: 18 }}>📷</Text>
+                                    </View>
+                                )}
                             </View>
                         </TouchableOpacity>
-                        <Text style={styles.profileName}>Dr. {profile?.full_name || '—'}</Text>
-                        <Text style={styles.profileRole}>Doctor Account</Text>
+                        <Text style={{ color: C.text, fontSize: 20, fontFamily: 'Calistoga' }}>Dr. {profile?.full_name || '—'}</Text>
+                        <Text style={{ color: C.accent, fontSize: 12, fontWeight: '500', letterSpacing: 0.5 }}>Doctor Account</Text>
                     </View>
 
-                    {/* Avatar action modal */}
+                    {/* Avatar menu */}
                     <Modal visible={avatarMenuOpen} transparent animationType="fade" onRequestClose={() => setAvatarMenuOpen(false)}>
-                        <Pressable style={styles.avatarMenuOverlay} onPress={() => setAvatarMenuOpen(false)}>
-                            <View style={styles.avatarMenu}>
+                        <Pressable style={[styles.avatarMenuOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]} onPress={() => setAvatarMenuOpen(false)}>
+                            <View style={[styles.avatarMenuBox, { backgroundColor: C.modalBg, borderColor: C.modalBorder }]}>
                                 <TouchableOpacity style={styles.avatarMenuItem} onPress={() => { setAvatarMenuOpen(false); handleAvatarPick() }}>
-                                    <Text style={styles.avatarMenuItemText}>Upload new photo</Text>
+                                    <Text style={{ color: C.text, fontSize: 14 }}>Upload new photo</Text>
                                 </TouchableOpacity>
-                                <View style={styles.avatarMenuDivider} />
+                                <View style={{ height: 1, backgroundColor: C.modalBorder }} />
                                 <TouchableOpacity style={styles.avatarMenuItem} onPress={handleDeletePfp}>
-                                    <Text style={[styles.avatarMenuItemText, { color: '#e05252' }]}>Delete photo</Text>
+                                    <Text style={{ color: '#e05252', fontSize: 14 }}>Delete photo</Text>
                                 </TouchableOpacity>
                             </View>
                         </Pressable>
@@ -174,10 +194,10 @@ export default function DoctorProfile() {
 
                     <View style={{ gap: 14 }}>
 
-                        <View style={styles.card}>
-                            <Text style={styles.sectionLabel}>Appearance</Text>
-                            <View style={styles.row}>
-                                <Text style={styles.rowText}>{lightMode ? 'Light Mode ☀︎' : 'Dark Mode ⏾'}</Text>
+                        <View style={{ backgroundColor: C.cardBg, borderRadius: 18, padding: 18, borderWidth: 1, borderColor: C.cardBorder }}>
+                            <Text style={{ color: C.accentLabel, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 14, fontFamily: 'Georgia' }}>Appearance</Text>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Text style={{ color: C.text, fontWeight: '600', fontSize: 14 }}>{lightMode ? 'Light Mode ☀︎' : 'Dark Mode ⏾'}</Text>
                                 <Switch
                                     value={lightMode}
                                     onValueChange={handleModeToggle}
@@ -188,57 +208,65 @@ export default function DoctorProfile() {
                             </View>
                         </View>
 
-                        <View style={styles.card}>
-                            <Text style={styles.sectionLabel}>Account Details</Text>
-                            {[
-                                { label: 'Change Email', modal: 'email' },
-                                { label: 'Change Password', modal: 'password' },
-                                { label: 'Change Phone Number', modal: 'phone' },
-                            ].map(({ label, modal }) => (
-                                <ProfileRow key={modal} label={label} onPress={() => setDetailModal(modal)} />
-                            ))}
-                        </View>
-
-                        {accountStatus && (!accountStatus.is_independent || !accountStatus.is_guardian) && (
-                            <View style={styles.card}>
-                                <Text style={styles.sectionLabel}>Add Account Type</Text>
-                                {!accountStatus.is_independent && (
-                                    <ProfileRow label="+ Add Independent Account" onPress={() => navigation.navigate('DoctorAddIndependent')} />
-                                )}
-                                {!accountStatus.is_guardian && (
-                                    <ProfileRow label="+ Add Guardian Account" onPress={() => navigation.navigate('DoctorAddGuardian')} />
-                                )}
-                            </View>
-                        )}
-
                         {accountStatus && (accountStatus.is_independent || accountStatus.is_guardian) && (
-                            <View style={styles.card}>
-                                <Text style={styles.sectionLabel}>Switch Account</Text>
+                            <View style={{ backgroundColor: C.cardBg, borderRadius: 18, padding: 18, borderWidth: 1, borderColor: C.cardBorder }}>
+                                <Text style={{ color: C.accentLabel, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 14, fontFamily: 'Georgia' }}>Switch Account</Text>
                                 {accountStatus.is_independent && (
                                     <ProfileRow
                                         label={switchingRole === 'independent' ? 'Switching…' : 'Switch to Independent'}
                                         onPress={() => handleSwitch('independent')}
                                         disabled={switchingRole === 'independent'}
+                                        C={C}
                                     />
                                 )}
+                                {accountStatus.is_independent && accountStatus.is_guardian && <View style={sep} />}
                                 {accountStatus.is_guardian && (
                                     <ProfileRow
                                         label={switchingRole === 'guardian' ? 'Switching…' : 'Switch to Guardian'}
                                         onPress={() => handleSwitch('guardian')}
                                         disabled={switchingRole === 'guardian'}
+                                        C={C}
                                     />
                                 )}
                             </View>
                         )}
 
-                        <View style={styles.card}>
-                            <Text style={styles.sectionLabel}>More</Text>
-                            <ProfileRow label="Subscriptions" onPress={() => navigation.navigate('Subscriptions', { role: 'doctor' })} />
-                            <ProfileRow label="Report a Bug" onPress={() => navigation.navigate('ReportSmth')} />
+                        <View style={{ backgroundColor: C.cardBg, borderRadius: 18, padding: 18, borderWidth: 1, borderColor: C.cardBorder }}>
+                            <Text style={{ color: C.accentLabel, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 14, fontFamily: 'Georgia' }}>Account Details</Text>
+                            {[
+                                { label: 'Change Email', modal: 'email' },
+                                { label: 'Change Password', modal: 'password' },
+                                { label: 'Change Phone Number', modal: 'phone' },
+                            ].map(({ label, modal }, i, arr) => (
+                                <View key={modal}>
+                                    <ProfileRow label={label} onPress={() => setDetailModal(modal)} C={C} />
+                                    {i < arr.length - 1 && <View style={sep} />}
+                                </View>
+                            ))}
+                        </View>
+
+                        {accountStatus && (!accountStatus.is_independent || !accountStatus.is_guardian) && (
+                            <View style={{ backgroundColor: C.cardBg, borderRadius: 18, padding: 18, borderWidth: 1, borderColor: C.cardBorder }}>
+                                <Text style={{ color: C.accentLabel, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 14, fontFamily: 'Georgia' }}>Add Account Type</Text>
+                                {!accountStatus.is_independent && (
+                                    <ProfileRow label="+ Add Independent Account" onPress={() => navigation.navigate('DoctorAddIndependent')} C={C} />
+                                )}
+                                {!accountStatus.is_independent && !accountStatus.is_guardian && <View style={sep} />}
+                                {!accountStatus.is_guardian && (
+                                    <ProfileRow label="+ Add Guardian Account" onPress={() => navigation.navigate('DoctorAddGuardian')} C={C} />
+                                )}
+                            </View>
+                        )}
+
+                        <View style={{ backgroundColor: C.cardBg, borderRadius: 18, padding: 18, borderWidth: 1, borderColor: C.cardBorder }}>
+                            <Text style={{ color: C.accentLabel, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 14, fontFamily: 'Georgia' }}>More</Text>
+                            <ProfileRow label="Subscriptions" onPress={() => navigation.navigate('Subscriptions', { role: 'doctor' })} C={C} />
+                            <View style={sep} />
+                            <ProfileRow label="Report a Bug" onPress={() => navigation.navigate('ReportSmth')} C={C} />
                         </View>
 
                         <TouchableOpacity onPress={() => navigation.navigate('About')}>
-                            <Text style={styles.aboutLink}>About</Text>
+                            <Text style={{ color: C.accent, fontSize: 14, textDecorationLine: 'underline', paddingVertical: 2, left: 15 }}>About</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
@@ -259,20 +287,26 @@ export default function DoctorProfile() {
     )
 }
 
-function ProfileRow({ label, onPress, disabled }) {
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function ProfileRow({ label, onPress, disabled, C }) {
     return (
         <TouchableOpacity
-            style={styles.profileRow}
+            style={{ paddingVertical: 13, paddingHorizontal: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
             onPress={disabled ? undefined : onPress}
             activeOpacity={disabled ? 1 : 0.7}
         >
-            <Text style={[styles.profileRowText, disabled && { color: C.textSub }]}>{label}</Text>
+            <Text style={{ color: disabled ? C.textSub : C.text, fontSize: 14, fontWeight: '500' }}>{label}</Text>
             <Text style={{ color: C.textSub, fontSize: 18 }}>›</Text>
         </TouchableOpacity>
     )
 }
 
 function AccountDetailModal({ type, userPhone, onClose }) {
+    const { theme } = useTheme()
+    const C = makeC(theme)
+    const mStyles = getMStyles(C)
+
     const [form, setForm] = useState({})
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
@@ -285,10 +319,7 @@ function AccountDetailModal({ type, userPhone, onClose }) {
         if (emailStep !== 2) return
         setCountdown(120)
         const interval = setInterval(() => {
-            setCountdown(prev => {
-                if (prev <= 1) { clearInterval(interval); return 0 }
-                return prev - 1
-            })
+            setCountdown(prev => { if (prev <= 1) { clearInterval(interval); return 0 } return prev - 1 })
         }, 1000)
         return () => clearInterval(interval)
     }, [emailStep, timerKey])
@@ -298,38 +329,27 @@ function AccountDetailModal({ type, userPhone, onClose }) {
         try {
             await api.post('/users/email/request', { new_email: form.new_email, password: form.password })
             setEmailStep(2)
-        } catch (err) {
-            setError(err.response?.data?.error || 'Failed to send code')
-        } finally { setLoading(false) }
+        } catch (err) { setError(err.response?.data?.error || 'Failed to send code') }
+        finally { setLoading(false) }
     }
 
     const handleResend = async () => {
         setLoading(true); setError('')
         try {
             await api.post('/users/email/request', { new_email: form.new_email, password: form.password })
-            setTimerKey(k => k + 1)
-            setForm(f => ({ ...f, code: '' }))
-        } catch (err) {
-            setError(err.response?.data?.error || 'Failed to resend')
-        } finally { setLoading(false) }
+            setTimerKey(k => k + 1); setForm(f => ({ ...f, code: '' }))
+        } catch (err) { setError(err.response?.data?.error || 'Failed to resend') }
+        finally { setLoading(false) }
     }
 
     const handleSubmit = async () => {
         setLoading(true); setError('')
         try {
-            if (type === 'email') {
-                await api.patch('/users/email', { new_email: form.new_email, code: form.code })
-                setSuccess('Email updated successfully')
-            } else if (type === 'password') {
-                await api.patch('/users/password', { old_password: form.old_password, new_password: form.new_password })
-                setSuccess('Password updated successfully')
-            } else if (type === 'phone') {
-                await api.patch('/users/phone', { new_phone: form.new_phone, password: form.password })
-                setSuccess('Phone number updated successfully')
-            }
-        } catch (err) {
-            setError(err.response?.data?.error || 'Failed to update')
-        } finally { setLoading(false) }
+            if (type === 'email') { await api.patch('/users/email', { new_email: form.new_email, code: form.code }); setSuccess('Email updated successfully') }
+            if (type === 'password') { await api.patch('/users/password', { old_password: form.old_password, new_password: form.new_password }); setSuccess('Password updated successfully') }
+            if (type === 'phone') { await api.patch('/users/phone', { new_phone: form.new_phone, password: form.password }); setSuccess('Phone number updated successfully') }
+        } catch (err) { setError(err.response?.data?.error || 'Failed to update') }
+        finally { setLoading(false) }
     }
 
     const newPw = form.new_password || ''
@@ -337,12 +357,12 @@ function AccountDetailModal({ type, userPhone, onClose }) {
     const pwStrength = newPw ? 5 - pwErrors.length : 0
     const pwColor = pwStrength <= 2 ? '#e53e3e' : pwStrength <= 3 ? '#dd6b20' : '#38a169'
     const titles = { email: 'Change Email', password: 'Change Password', phone: 'Change Phone Number' }
-    const formatCountdown = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+    const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
     return (
         <Modal visible transparent animationType="fade" onRequestClose={onClose}>
             <Pressable style={mStyles.overlay} onPress={onClose}>
-                <Pressable style={mStyles.box} onPress={() => {}}>
+                <Pressable style={mStyles.box} onPress={() => { }}>
                     <Text style={mStyles.title}>{titles[type]}</Text>
 
                     {success ? (
@@ -350,11 +370,7 @@ function AccountDetailModal({ type, userPhone, onClose }) {
                             <Text style={{ fontSize: 36, marginBottom: 10 }}>✅</Text>
                             <Text style={[mStyles.text, { fontWeight: '700', marginBottom: 20 }]}>{success}</Text>
                             <TouchableOpacity onPress={onClose}>
-                                <LinearGradient
-                                    colors={['#5a1e96', '#8b5cf6']}
-                                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                    style={mStyles.primaryBtn}
-                                >
+                                <LinearGradient colors={['#5a1e96', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={mStyles.primaryBtn}>
                                     <Text style={mStyles.primaryBtnText}>Done</Text>
                                 </LinearGradient>
                             </TouchableOpacity>
@@ -365,23 +381,11 @@ function AccountDetailModal({ type, userPhone, onClose }) {
 
                                 {type === 'email' && emailStep === 1 && (
                                     <>
-                                        <TextInput
-                                            style={mStyles.input}
-                                            placeholder="New email address"
-                                            placeholderTextColor={C.modalSubtext}
-                                            value={form.new_email || ''}
-                                            onChangeText={v => setForm({ ...form, new_email: v })}
-                                            autoCapitalize="none"
-                                            keyboardType="email-address"
-                                        />
-                                        <TextInput
-                                            style={mStyles.input}
-                                            placeholder="Your password"
-                                            placeholderTextColor={C.modalSubtext}
-                                            value={form.password || ''}
-                                            onChangeText={v => setForm({ ...form, password: v })}
-                                            secureTextEntry
-                                        />
+                                        <TextInput style={mStyles.input} placeholder="New email address" placeholderTextColor={C.modalSubtext}
+                                            value={form.new_email || ''} onChangeText={v => setForm({ ...form, new_email: v })}
+                                            autoCapitalize="none" keyboardType="email-address" />
+                                        <TextInput style={mStyles.input} placeholder="Your password" placeholderTextColor={C.modalSubtext}
+                                            value={form.password || ''} onChangeText={v => setForm({ ...form, password: v })} secureTextEntry />
                                     </>
                                 )}
 
@@ -394,7 +398,7 @@ function AccountDetailModal({ type, userPhone, onClose }) {
                                         <OtpInput value={form.code || ''} onChange={code => setForm({ ...form, code })} />
                                         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                                             <Text style={{ fontSize: 12, color: countdown > 0 ? '#718096' : '#e53e3e' }}>
-                                                {countdown > 0 ? `Expires in ${formatCountdown(countdown)}` : 'Code expired'}
+                                                {countdown > 0 ? `Expires in ${fmt(countdown)}` : 'Code expired'}
                                             </Text>
                                             <TouchableOpacity onPress={handleResend} disabled={loading || countdown > 0}>
                                                 <Text style={{ fontSize: 12, color: countdown > 0 ? '#aaa' : C.accent }}>Resend</Text>
@@ -405,22 +409,10 @@ function AccountDetailModal({ type, userPhone, onClose }) {
 
                                 {type === 'password' && (
                                     <>
-                                        <TextInput
-                                            style={mStyles.input}
-                                            placeholder="Current password"
-                                            placeholderTextColor={C.modalSubtext}
-                                            value={form.old_password || ''}
-                                            onChangeText={v => setForm({ ...form, old_password: v })}
-                                            secureTextEntry
-                                        />
-                                        <TextInput
-                                            style={mStyles.input}
-                                            placeholder="New password"
-                                            placeholderTextColor={C.modalSubtext}
-                                            value={newPw}
-                                            onChangeText={v => setForm({ ...form, new_password: v })}
-                                            secureTextEntry
-                                        />
+                                        <TextInput style={mStyles.input} placeholder="Current password" placeholderTextColor={C.modalSubtext}
+                                            value={form.old_password || ''} onChangeText={v => setForm({ ...form, old_password: v })} secureTextEntry />
+                                        <TextInput style={mStyles.input} placeholder="New password" placeholderTextColor={C.modalSubtext}
+                                            value={newPw} onChangeText={v => setForm({ ...form, new_password: v })} secureTextEntry />
                                         {newPw.length > 0 && (
                                             <View>
                                                 <View style={{ flexDirection: 'row', gap: 4, marginBottom: 4 }}>
@@ -441,26 +433,12 @@ function AccountDetailModal({ type, userPhone, onClose }) {
 
                                 {type === 'phone' && (
                                     <>
-                                        {!!userPhone && (
-                                            <Text style={{ color: C.modalSubtext, fontSize: 12 }}>Current: {userPhone}</Text>
-                                        )}
-                                        <TextInput
-                                            style={mStyles.input}
-                                            placeholder="New phone number"
-                                            placeholderTextColor={C.modalSubtext}
-                                            value={form.new_phone || ''}
-                                            onChangeText={v => setForm({ ...form, new_phone: v.replace(/[^\d+]/g, '') })}
-                                            keyboardType="phone-pad"
-                                            maxLength={16}
-                                        />
-                                        <TextInput
-                                            style={mStyles.input}
-                                            placeholder="Your password"
-                                            placeholderTextColor={C.modalSubtext}
-                                            value={form.password || ''}
-                                            onChangeText={v => setForm({ ...form, password: v })}
-                                            secureTextEntry
-                                        />
+                                        {!!userPhone && <Text style={{ color: C.modalSubtext, fontSize: 12 }}>Current: {userPhone}</Text>}
+                                        <TextInput style={mStyles.input} placeholder="New phone number" placeholderTextColor={C.modalSubtext}
+                                            value={form.new_phone || ''} onChangeText={v => setForm({ ...form, new_phone: v.replace(/[^\d+]/g, '') })}
+                                            keyboardType="phone-pad" maxLength={16} />
+                                        <TextInput style={mStyles.input} placeholder="Your password" placeholderTextColor={C.modalSubtext}
+                                            value={form.password || ''} onChangeText={v => setForm({ ...form, password: v })} secureTextEntry />
                                     </>
                                 )}
                             </View>
@@ -473,30 +451,14 @@ function AccountDetailModal({ type, userPhone, onClose }) {
                                 </TouchableOpacity>
 
                                 {type === 'email' && emailStep === 1 ? (
-                                    <TouchableOpacity
-                                        style={[mStyles.btn, loading && { opacity: 0.7 }]}
-                                        onPress={handleSendCode}
-                                        disabled={loading}
-                                    >
-                                        <LinearGradient
-                                            colors={['#5a1e96', '#8b5cf6']}
-                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                            style={mStyles.primaryBtn}
-                                        >
+                                    <TouchableOpacity style={[mStyles.btn, loading && { opacity: 0.7 }]} onPress={handleSendCode} disabled={loading}>
+                                        <LinearGradient colors={['#5a1e96', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={mStyles.primaryBtn}>
                                             <Text style={mStyles.primaryBtnText}>{loading ? 'Sending…' : 'Send Code'}</Text>
                                         </LinearGradient>
                                     </TouchableOpacity>
                                 ) : (
-                                    <TouchableOpacity
-                                        style={[mStyles.btn, loading && { opacity: 0.7 }]}
-                                        onPress={handleSubmit}
-                                        disabled={loading}
-                                    >
-                                        <LinearGradient
-                                            colors={['#5a1e96', '#8b5cf6']}
-                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                            style={mStyles.primaryBtn}
-                                        >
+                                    <TouchableOpacity style={[mStyles.btn, loading && { opacity: 0.7 }]} onPress={handleSubmit} disabled={loading}>
+                                        <LinearGradient colors={['#5a1e96', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={mStyles.primaryBtn}>
                                             <Text style={mStyles.primaryBtnText}>
                                                 {loading ? 'Saving…' : type === 'email' ? 'Verify & Update' : 'Save'}
                                             </Text>
@@ -513,6 +475,9 @@ function AccountDetailModal({ type, userPhone, onClose }) {
 }
 
 function OtpInput({ value, onChange }) {
+    const { theme } = useTheme()
+    const C = makeC(theme)
+    const mStyles = getMStyles(C)
     const refs = useRef([])
     const digits = (value || '').split('').concat(Array(6).fill('')).slice(0, 6)
 
@@ -551,78 +516,17 @@ function OtpInput({ value, onChange }) {
     )
 }
 
-const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: C.bg },
-    content: { padding: 20, paddingBottom: 48 },
+// ── Static styles (layout only, no colors) ───────────────────────────────────
 
-    avatarSection: { alignItems: 'center', marginBottom: 28, gap: 12 },
-    avatarWrap: {
-        width: 80, height: 80, borderRadius: 40, overflow: 'hidden',
-        shadowColor: '#6432b4', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10,
-    },
+const styles = StyleSheet.create({
+    avatarWrap: { width: 80, height: 80, borderRadius: 40, overflow: 'hidden', shadowColor: '#6432b4', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
     avatarImg: { width: '100%', height: '100%' },
     avatarPlaceholder: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center' },
     avatarInitials: { color: 'white', fontSize: 26, fontWeight: '700' },
-    avatarOverlay: {
-        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        alignItems: 'center', justifyContent: 'center',
-    },
-    profileName: { color: C.text, fontSize: 20, fontFamily: 'Calistoga' },
-    profileRole: { color: C.accent, fontSize: 12, fontWeight: '500', letterSpacing: 0.5 },
-
-    avatarMenuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-    avatarMenu: {
-        backgroundColor: C.modalBg, borderRadius: 14, overflow: 'hidden',
-        width: 200, borderWidth: 1, borderColor: C.modalBorder,
-    },
+    avatarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center' },
+    avatarMenuOverlay: { flex: 1, justifyContent: 'flex-start', alignItems: 'center', paddingTop: 220 },
+    avatarMenuBox: { borderRadius: 14, overflow: 'hidden', width: 200, borderWidth: 1 },
     avatarMenuItem: { padding: 16 },
-    avatarMenuItemText: { color: C.text, fontSize: 14 },
-    avatarMenuDivider: { height: 1, backgroundColor: C.modalBorder },
-
-    card: {
-        backgroundColor: C.cardBg, borderRadius: 18, padding: 18,
-        borderWidth: 1, borderColor: C.cardBorder,
-    },
-    sectionLabel: {
-        color: C.accentLabel, fontSize: 11, fontWeight: '700',
-        textTransform: 'uppercase', letterSpacing: 1, marginBottom: 14,
-    },
-    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    rowText: { color: C.text, fontWeight: '600', fontSize: 14 },
-
-    profileRow: {
-        paddingVertical: 13, paddingHorizontal: 4,
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    },
-    profileRowText: { color: C.text, fontSize: 14, fontWeight: '500' },
-    aboutLink: { color: C.accent, fontSize: 14, textDecorationLine: 'underline', paddingVertical: 2 },
-    logoutBtn: {
-        padding: 16, borderWidth: 1, borderColor: 'rgba(229,62,62,0.2)',
-        borderRadius: 14, backgroundColor: 'rgba(229,62,62,0.08)', alignItems: 'center',
-    },
+    logoutBtn: { padding: 16, borderWidth: 1, borderColor: 'rgba(229,62,62,0.2)', borderRadius: 14, backgroundColor: 'rgba(229,62,62,0.08)', alignItems: 'center' },
     logoutText: { color: '#e53e3e', fontSize: 14, fontWeight: '700' },
-})
-
-const mStyles = StyleSheet.create({
-    overlay: { flex: 1, backgroundColor: 'rgba(30,15,51,0.6)', justifyContent: 'center', alignItems: 'center' },
-    box: {
-        backgroundColor: C.modalBg, borderRadius: 20, padding: 28,
-        width: 340, maxWidth: '90%', borderWidth: 1, borderColor: C.modalBorder,
-    },
-    title: { color: C.modalText, fontWeight: '700', fontSize: 17, marginBottom: 20 },
-    text: { color: C.modalText, fontSize: 14 },
-    input: {
-        borderWidth: 1.5, borderColor: C.modalBorder, borderRadius: 8,
-        padding: 11, fontSize: 14, color: C.modalText, backgroundColor: 'rgba(0,0,0,0.2)',
-    },
-    btn: { flex: 1, borderRadius: 10, overflow: 'hidden' },
-    cancelBtn: { borderWidth: 1.5, borderColor: C.modalBorder, backgroundColor: 'rgba(0,0,0,0.2)', alignItems: 'center', justifyContent: 'center', padding: 11 },
-    primaryBtn: { padding: 11, alignItems: 'center', borderRadius: 10 },
-    primaryBtnText: { color: 'white', fontWeight: '700', fontSize: 14 },
-    otpBox: {
-        width: 44, height: 52, borderRadius: 8, borderWidth: 1.5,
-        borderColor: C.modalBorder, backgroundColor: 'rgba(0,0,0,0.2)',
-        color: C.modalText, fontSize: 20, fontWeight: '700',
-    },
 })

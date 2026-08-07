@@ -6,6 +6,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { useAuth } from '../../context/AuthContext'
+import { useTheme } from '../../context/ThemeContext'
 import Header from '../../components/Header'
 
 const STORAGE_KEYS = {
@@ -15,47 +16,20 @@ const STORAGE_KEYS = {
     storageUpgraded:    'medi_sub_storage',
 }
 
-const THEME = {
-    guardian: {
-        bg: '#1c0818',
-        cardBg: 'rgba(50,10,35,0.92)',
-        cardBorder: 'rgba(160,55,105,0.35)',
-        cardBorderActive: 'rgba(220,140,185,0.5)',
-        textPrimary: '#f4d0e0',
-        textSecondary: '#c090b0',
-        textMuted: '#9070a0',
-        accent: '#e87090',
-        gradient: '#740949',
-        gradientEnd: '#a94382',
-        modalBg: '#2a0820',
-        modalText: '#f4d0e0',
-        modalSubtext: '#c090b0',
-        modalBorder: 'rgba(220,140,185,0.35)',
-    },
-    independent: {
-        bg: '#081c2f',
-        cardBg: 'rgba(13,31,51,0.92)',
-        cardBorder: 'rgba(0,168,232,0.18)',
-        cardBorderActive: 'rgba(0,168,232,0.45)',
-        textPrimary: '#d6e8f7',
-        textSecondary: '#7aa8c4',
-        textMuted: '#4a7090',
-        accent: '#00a8e8',
-        gradient: '#006fa6',
-        gradientEnd: '#00a8e8',
-        modalBg: '#0d1f33',
-        modalText: '#d6e8f7',
-        modalSubtext: '#7aa8c4',
-        modalBorder: 'rgba(0,168,232,0.25)',
-    },
+// Brand gradient color per role — stays the same in light and dark
+const GRAD = {
+    guardian:    '#740949',
+    independent: '#006fa6',
+    doctor:      '#5a1e96',
 }
 
 export default function Subscriptions() {
     const navigation = useNavigation()
     const route = useRoute()
     const { user } = useAuth()
+    const { theme } = useTheme()
     const role = route.params?.role || user?.role || 'independent'
-    const t = THEME[role] || THEME.independent
+    const grad = GRAD[role] || GRAD.independent
 
     const [openDdl, setOpenDdl]               = useState(route.params?.openDdl || null)
     const [hasAiPro, setHasAiPro]             = useState(false)
@@ -118,12 +92,12 @@ export default function Subscriptions() {
     }
 
     return (
-        <SafeAreaView style={[styles.root, { backgroundColor: t.bg }]}>
+        <SafeAreaView style={[styles.root, { backgroundColor: theme.pageBg }]}>
             <Header role={role} />
             <ScrollView contentContainerStyle={styles.content}>
 
-                <Text style={[styles.heading, { color: t.textPrimary }]}>Subscriptions</Text>
-                <Text style={[styles.subheading, { color: t.textSecondary }]}>
+                <Text style={[styles.heading, { color: theme.textPrimary }]}>Subscriptions</Text>
+                <Text style={[styles.subheading, { color: theme.textSecondary }]}>
                     Unlock premium features for your Medi account
                 </Text>
 
@@ -134,19 +108,19 @@ export default function Subscriptions() {
                         <DdlHeader
                             ddlKey="ai" title="Medi AI Pro" price="99 EGP/month"
                             badge={hasAiPro} isOpen={openDdl === 'ai'}
-                            onPress={() => toggleDdl('ai')} t={t}
+                            onPress={() => toggleDdl('ai')} theme={theme}
                         />
                         {openDdl === 'ai' && (
-                            <View style={[styles.panel, { backgroundColor: t.cardBg, borderColor: t.cardBorder }]}>
+                            <View style={[styles.panel, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
                                 {[
                                     '✦ Unlimited daily Medi AI requests',
                                     '✦ Priority AI response speed',
                                     '✦ Exclusive Pro badge in chat',
                                     '✦ Star decorations in chat interface',
                                 ].map(f => (
-                                    <Text key={f} style={[styles.featureText, { color: t.textPrimary }]}>{f}</Text>
+                                    <Text key={f} style={[styles.featureText, { color: theme.textPrimary }]}>{f}</Text>
                                 ))}
-                                <Text style={[styles.noteText, { color: t.textSecondary }]}>
+                                <Text style={[styles.noteText, { color: theme.textSecondary }]}>
                                     Free tier: 15 requests per day. Pro removes this limit entirely.
                                 </Text>
                                 {hasAiPro ? (
@@ -154,7 +128,7 @@ export default function Subscriptions() {
                                 ) : (
                                     <GradBtn
                                         label="Purchase Now — 99 EGP/month"
-                                        color={t.gradient}
+                                        color={grad}
                                         onPress={() => openPayPopup('ai', 'Medi AI Pro — 99 EGP/month', purchaseAiPro)}
                                     />
                                 )}
@@ -167,45 +141,45 @@ export default function Subscriptions() {
                         <DdlHeader
                             ddlKey="summary" title="Purchase Summaries"
                             badge={hasSummaryMonthly} isOpen={openDdl === 'summary'}
-                            onPress={() => toggleDdl('summary')} t={t}
+                            onPress={() => toggleDdl('summary')} theme={theme}
                         />
                         {openDdl === 'summary' && (
-                            <View style={[styles.panel, { backgroundColor: t.cardBg, borderColor: t.cardBorder }]}>
+                            <View style={[styles.panel, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
                                 <View style={{ flexDirection: 'row', gap: 14 }}>
                                     {/* Monthly */}
                                     <View style={{ flex: 1, gap: 10 }}>
-                                        <Text style={[styles.subTitle, { color: t.textPrimary }]}>Monthly Summaries</Text>
-                                        <Text style={[styles.noteText, { color: t.textSecondary }]}>
+                                        <Text style={[styles.subTitle, { color: theme.textPrimary }]}>Monthly Summaries</Text>
+                                        <Text style={[styles.noteText, { color: theme.textSecondary }]}>
                                             Generate unlimited summaries each month. Resets every 30 days from your last summary.
                                         </Text>
-                                        <Text style={{ color: t.accent, fontWeight: '700', fontSize: 18 }}>
-                                            49 EGP<Text style={{ fontSize: 11, fontWeight: '500', color: t.textMuted }}>/month</Text>
+                                        <Text style={{ color: theme.accent, fontWeight: '700', fontSize: 18 }}>
+                                            49 EGP<Text style={{ fontSize: 11, fontWeight: '500', color: theme.textMuted }}>/month</Text>
                                         </Text>
                                         {hasSummaryMonthly ? (
                                             <ActiveBanner label="✓ Active" small />
                                         ) : (
                                             <GradBtn
                                                 label="Subscribe"
-                                                color={t.gradient}
+                                                color={grad}
                                                 onPress={() => openPayPopup('summary_monthly', 'Monthly Summaries — 49 EGP/month', purchaseSummaryMonthly)}
                                             />
                                         )}
                                     </View>
 
-                                    <View style={[styles.vertDivider, { backgroundColor: t.cardBorder }]} />
+                                    <View style={[styles.vertDivider, { backgroundColor: theme.cardBorder }]} />
 
                                     {/* One-off */}
                                     <View style={{ flex: 1, gap: 10 }}>
-                                        <Text style={[styles.subTitle, { color: t.textPrimary }]}>One Summary</Text>
-                                        <Text style={[styles.noteText, { color: t.textSecondary }]}>
+                                        <Text style={[styles.subTitle, { color: theme.textPrimary }]}>One Summary</Text>
+                                        <Text style={[styles.noteText, { color: theme.textSecondary }]}>
                                             Unlock regeneration once. Locks again after use.
                                         </Text>
-                                        <Text style={{ color: t.accent, fontWeight: '700', fontSize: 18 }}>
-                                            10 EGP<Text style={{ fontSize: 11, fontWeight: '500', color: t.textMuted }}> one-time</Text>
+                                        <Text style={{ color: theme.accent, fontWeight: '700', fontSize: 18 }}>
+                                            10 EGP<Text style={{ fontSize: 11, fontWeight: '500', color: theme.textMuted }}> one-time</Text>
                                         </Text>
                                         <GradBtn
                                             label="Buy Once"
-                                            color={t.gradient}
+                                            color={grad}
                                             onPress={() => openPayPopup('summary_one', 'One Summary — 10 EGP', purchaseOneSummary)}
                                         />
                                     </View>
@@ -219,18 +193,18 @@ export default function Subscriptions() {
                         <DdlHeader
                             ddlKey="storage" title="Purchase Storage" price="25 EGP/month"
                             badge={hasStorage} isOpen={openDdl === 'storage'}
-                            onPress={() => toggleDdl('storage')} t={t}
+                            onPress={() => toggleDdl('storage')} theme={theme}
                         />
                         {openDdl === 'storage' && (
-                            <View style={[styles.panel, { backgroundColor: t.cardBg, borderColor: t.cardBorder }]}>
+                            <View style={[styles.panel, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
                                 {[
                                     '✦ 500 MB of medical record storage',
                                     '✦ Up from the free 50 MB limit',
                                     '✦ Storage bar reflects new limit',
                                 ].map(f => (
-                                    <Text key={f} style={[styles.featureText, { color: t.textPrimary }]}>{f}</Text>
+                                    <Text key={f} style={[styles.featureText, { color: theme.textPrimary }]}>{f}</Text>
                                 ))}
-                                <Text style={[styles.noteText, { color: t.textSecondary }]}>
+                                <Text style={[styles.noteText, { color: theme.textSecondary }]}>
                                     Free tier: 50 MB. Upgrade to 500 MB for 25 EGP/month.
                                 </Text>
                                 {hasStorage ? (
@@ -238,7 +212,7 @@ export default function Subscriptions() {
                                 ) : (
                                     <GradBtn
                                         label="Purchase Now — 25 EGP/month"
-                                        color={t.gradient}
+                                        color={grad}
                                         onPress={() => openPayPopup('storage', 'Storage Upgrade — 25 EGP/month', purchaseStorage)}
                                     />
                                 )}
@@ -252,7 +226,7 @@ export default function Subscriptions() {
                 </View>
 
                 <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-                    <Text style={[styles.backText, { color: t.textSecondary }]}>← Back</Text>
+                    <Text style={[styles.backText, { color: theme.textSecondary }]}>← Back</Text>
                 </TouchableOpacity>
             </ScrollView>
 
@@ -261,46 +235,45 @@ export default function Subscriptions() {
                 <Modal visible transparent animationType="fade" onRequestClose={closePopup}>
                     <Pressable style={styles.popupOverlay} onPress={closePopup}>
                         <Pressable
-                            style={[styles.popupBox, { backgroundColor: t.modalBg, borderColor: t.modalBorder }]}
+                            style={[styles.popupBox, { backgroundColor: theme.modalBg, borderColor: theme.modalBorder }]}
                             onPress={() => {}}
                         >
                             {paySuccess ? (
                                 <View style={{ alignItems: 'center', gap: 12 }}>
                                     <Text style={{ fontSize: 48 }}>✅</Text>
-                                    <Text style={[styles.popupTitle, { color: t.modalText }]}>Purchase successful!</Text>
-                                    <Text style={[styles.popupSubtext, { color: t.modalSubtext }]}>
+                                    <Text style={[styles.popupTitle, { color: theme.modalText }]}>Purchase successful!</Text>
+                                    <Text style={[styles.popupSubtext, { color: theme.modalSubtext }]}>
                                         {popup.label} has been activated.
                                     </Text>
-                                    <GradBtn label="Done" color={t.gradient} onPress={closePopup} />
+                                    <GradBtn label="Done" color={grad} onPress={closePopup} />
                                 </View>
                             ) : (
                                 <>
-                                    <Text style={[styles.popupTitle, { color: t.modalText }]}>Complete Purchase</Text>
-                                    <Text style={[styles.popupSubtext, { color: t.modalSubtext }]}>{popup.label}</Text>
+                                    <Text style={[styles.popupTitle, { color: theme.modalText }]}>Complete Purchase</Text>
+                                    <Text style={[styles.popupSubtext, { color: theme.modalSubtext }]}>{popup.label}</Text>
 
-                                    {/* Simulated checkbox */}
                                     <TouchableOpacity
-                                        style={[styles.checkRow, { borderColor: t.modalBorder }]}
+                                        style={[styles.checkRow, { borderColor: theme.modalBorder, backgroundColor: theme.modalInputBg }]}
                                         onPress={() => setSimChecked(c => !c)}
                                         activeOpacity={0.8}
                                     >
-                                        <View style={[styles.checkbox, { borderColor: t.accent }, simChecked && { backgroundColor: t.accent }]}>
+                                        <View style={[styles.checkbox, { borderColor: theme.accent }, simChecked && { backgroundColor: theme.accent }]}>
                                             {simChecked && <Text style={{ color: 'white', fontSize: 12, fontWeight: '700' }}>✓</Text>}
                                         </View>
-                                        <Text style={[styles.checkLabel, { color: t.modalText }]}>
+                                        <Text style={[styles.checkLabel, { color: theme.modalText }]}>
                                             Simulate card detail entry
                                         </Text>
                                     </TouchableOpacity>
 
                                     <View style={{ flexDirection: 'row', gap: 10 }}>
                                         <TouchableOpacity
-                                            style={[styles.popupBtn, { borderColor: t.modalBorder, borderWidth: 1 }]}
+                                            style={[styles.popupBtn, { borderColor: theme.modalBorder, borderWidth: 1, backgroundColor: theme.modalInputBg }]}
                                             onPress={closePopup}
                                         >
-                                            <Text style={{ color: t.modalSubtext, fontWeight: '600', fontSize: 13 }}>Cancel</Text>
+                                            <Text style={{ color: theme.modalSubtext, fontWeight: '600', fontSize: 13 }}>Cancel</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity
-                                            style={[styles.popupBtn, { backgroundColor: simChecked ? t.gradient : 'rgba(255,255,255,0.1)', opacity: simChecked ? 1 : 0.55 }]}
+                                            style={[styles.popupBtn, { backgroundColor: simChecked ? grad : theme.cardBg, opacity: simChecked ? 1 : 0.55 }]}
                                             onPress={handlePay}
                                             disabled={!simChecked}
                                         >
@@ -317,19 +290,19 @@ export default function Subscriptions() {
     )
 }
 
-function DdlHeader({ ddlKey, title, price, badge, isOpen, onPress, t }) {
+function DdlHeader({ ddlKey, title, price, badge, isOpen, onPress, theme }) {
     return (
         <TouchableOpacity
             style={[
                 styles.ddlHeader,
-                { backgroundColor: t.cardBg, borderColor: isOpen ? t.cardBorderActive : t.cardBorder },
+                { backgroundColor: theme.cardBg, borderColor: isOpen ? theme.cardBorderActive : theme.cardBorder },
                 isOpen && styles.ddlHeaderOpen,
             ]}
             onPress={onPress}
             activeOpacity={0.85}
         >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Text style={[styles.ddlTitle, { color: t.textPrimary }]}>{title}</Text>
+                <Text style={[styles.ddlTitle, { color: theme.textPrimary }]}>{title}</Text>
                 {badge && (
                     <View style={styles.activeBadge}>
                         <Text style={styles.activeBadgeText}>ACTIVE</Text>
@@ -337,8 +310,8 @@ function DdlHeader({ ddlKey, title, price, badge, isOpen, onPress, t }) {
                 )}
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                {price && <Text style={[styles.ddlPrice, { color: t.textMuted }]}>{price}</Text>}
-                <Text style={[styles.chevron, { color: t.accent }]}>{isOpen ? '▲' : '▼'}</Text>
+                {price && <Text style={[styles.ddlPrice, { color: theme.textMuted }]}>{price}</Text>}
+                <Text style={[styles.chevron, { color: theme.accent }]}>{isOpen ? '▲' : '▼'}</Text>
             </View>
         </TouchableOpacity>
     )
@@ -407,8 +380,7 @@ const styles = StyleSheet.create({
     popupSubtext: { fontSize: 13 },
     checkRow: {
         flexDirection: 'row', alignItems: 'center', gap: 10,
-        backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: 10,
-        padding: 13, borderWidth: 1,
+        borderRadius: 10, padding: 13, borderWidth: 1,
     },
     checkbox: {
         width: 20, height: 20, borderRadius: 4, borderWidth: 2,

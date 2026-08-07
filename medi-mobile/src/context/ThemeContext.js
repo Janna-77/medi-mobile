@@ -7,23 +7,22 @@ const ThemeContext = createContext(null)
 
 export const ThemeProvider = ({ children }) => {
     const { user } = useContext(authContext)
-    const [mode, setMode] = useState('light')
+    const [mode, setMode] = useState('dark')
+    const [themeReady, setThemeReady] = useState(false)
 
-    // Load saved mode from AsyncStorage on mount
+    // Load saved mode from AsyncStorage on mount — gate themeReady on completion
     useEffect(() => {
-        (async () => {
-            const saved = await AsyncStorage.getItem('medi_mode')
+        AsyncStorage.getItem('medi_mode').then(saved => {
             if (saved === 'light' || saved === 'dark') setMode(saved)
-        })()
+        }).finally(() => setThemeReady(true))
     }, [])
 
-    // Re-sync mode from AsyncStorage whenever the user changes (e.g. after login)
+    // Re-sync whenever the user changes (e.g. after login / role switch)
     useEffect(() => {
         if (!user) return
-        (async () => {
-            const saved = await AsyncStorage.getItem('medi_mode')
+        AsyncStorage.getItem('medi_mode').then(saved => {
             if (saved === 'light' || saved === 'dark') setMode(saved)
-        })()
+        })
     }, [user])
 
     const toggleMode = async () => {
@@ -33,10 +32,10 @@ export const ThemeProvider = ({ children }) => {
     }
 
     const role = user?.role ?? 'independent'
-    const theme = THEMES[role]?.[mode] ?? THEMES.independent.light
+    const theme = THEMES[role]?.[mode] ?? THEMES.independent.dark
 
     return (
-        <ThemeContext.Provider value={{ theme, role, mode, toggleMode }}>
+        <ThemeContext.Provider value={{ theme, role, mode, themeReady, toggleMode }}>
             {children}
         </ThemeContext.Provider>
     )
