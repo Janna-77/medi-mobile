@@ -1,0 +1,227 @@
+import { useState, useEffect } from 'react'
+import {
+    View, Text, TouchableOpacity, ScrollView,
+    StyleSheet, SafeAreaView,
+} from 'react-native'
+import { useNavigation } from '@react-navigation/native'
+import { Ionicons } from '@expo/vector-icons'
+import { LinearGradient } from 'expo-linear-gradient'
+import Header from '../../components/Header'
+import LoadingOverlay from '../../components/LoadingOverlay'
+import api from '../../api/axios'
+
+// MedicalCertificateExpiryLock not yet built for RN — renders content directly for now
+
+// Dark mode — mirrors web --doc-* CSS vars
+const C = {
+    bg:              '#141e2d',
+    cardBg:          'rgba(255,255,255,0.05)',
+    cardBorder:      'rgba(120,60,180,0.22)',
+    cardBorderActive:'rgba(160,80,240,0.38)',
+    text:            '#ede8ff',
+    textSub:         '#9070c0',
+    textMuted:       '#6a50a0',
+    accent:          '#a070e8',
+    accentLabel:     '#b890f0',
+    accentRed:       '#c0392b',
+    ctaBg:           '#5a1e96',
+}
+
+function getGreeting() {
+    const h = new Date().getHours()
+    if (h < 12) return 'Good morning'
+    if (h < 17) return 'Good afternoon'
+    return 'Good evening'
+}
+
+function fmtShort(d) {
+    return d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'
+}
+
+function getInitials(name) {
+    const parts = (name || '').trim().split(/\s+/)
+    if (parts.length === 1) return (parts[0][0] || '?').toUpperCase()
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+export default function DoctorHome() {
+    const navigation = useNavigation()
+    const [profile, setProfile] = useState(null)
+    const [patients, setPatients] = useState([])
+    const [pending, setPending] = useState([])
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        Promise.allSettled([
+            api.get('/users/profile'),
+            api.get('/doctors/patients'),
+            api.get('/doctors/pending'),
+        ]).then(([profileRes, patientsRes, pendingRes]) => {
+            if (profileRes.status === 'fulfilled') setProfile(profileRes.value.data)
+            if (patientsRes.status === 'fulfilled') setPatients(patientsRes.value.data ?? [])
+            if (pendingRes.status === 'fulfilled') setPending(pendingRes.value.data ?? [])
+        }).finally(() => setLoading(false))
+    }, [])
+
+    const lastName = profile?.full_name?.trim().split(/\s+/).pop() || ''
+    const todayStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+
+    const recentPatients = [...patients]
+        .sort((a, b) => new Date(b.granted_at || 0) - new Date(a.granted_at || 0))
+        .slice(0, 3)
+
+    const now = new Date()
+    const newThisMonth = patients.filter(p => {
+        if (!p.granted_at) return false
+        const d = new Date(p.granted_at)
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    }).length
+
+    const cta = pending.length > 0
+        ? { label: `View ${pending.length} pending request${pending.length !== 1 ? 's' : ''} →`, sub: 'Patients waiting for approval' }
+        : { label: 'View patient list →', sub: patients.length > 0 ? `${patients.length} patient${patients.length !== 1 ? 's' : ''} in your list` : 'No patients yet' }
+
+    return (
+        <SafeAreaView style={styles.safe}>
+            <Header role="doctor" />
+            <View style={{ flex: 1 }}>
+            <LoadingOverlay visible={loading} role="doctor" />
+            <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={styles.content}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* Greeting */}
+                <View style={styles.greetingBlock}>
+                    <Text style={[styles.dateLabel, { color: C.accentLabel }]}>{todayStr}</Text>
+                    <Text style={[styles.greeting, { color: C.text }]}>
+                        {getGreeting()}{lastName ? `, Dr. ${lastName}` : ''}
+                    </Text>
+                </View>
+
+                {/* Stat cards */}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.statRow}
+                    style={{ marginBottom: 24 }}
+                >
+                    <StatCard label="Patients" value={loading ? '…' : String(patients.length)} sub="total"    onPress={() => navigation.navigate('DoctorPatients')} />
+                    <StatCard label="Pending"  value={loading ? '…' : String(pending.length)}  sub="requests" onPress={() => navigation.navigate('DoctorPatients')} accent={pending.length > 0} />
+                    <StatCard label="New"      value={loading ? '…' : String(newThisMonth)}    sub="this month" onPress={() => navigation.navigate('DoctorPatients')} />
+                </ScrollView>
+
+                {/* CTA */}
+                <CTAButton label={cta.label} sub={cta.sub} onPress={() => navigation.navigate('DoctorPatients')} />
+
+                {/* Recent patients */}
+                {recentPatients.length > 0 && (
+                    <View style={{ marginTop: 32 }}>
+                        <Text style={[styles.sectionLabel, { color: C.textSub }]}>Recent Patients</Text>
+                        <View style={{ gap: 8 }}>
+                            {recentPatients.map(p => (
+                                <RecentCard
+                                    key={p.access_id}
+                                    patient={p}
+                                    onPress={() => navigation.navigate('PatientView', { patientId: p.patient_id })}
+                                />
+                            ))}
+                        </View>
+                    </View>
+                )}
+
+                {!loading && patients.length === 0 && pending.length === 0 && (
+                    <Text style={[styles.emptyText, { color: C.textMuted }]}>
+                        No patients yet. They'll appear once someone grants you access.
+                    </Text>
+                )}
+            </ScrollView>
+            </View>
+        </SafeAreaView>
+    )
+}
+
+function StatCard({ label, value, sub, onPress, accent }) {
+    return (
+        <TouchableOpacity
+            onPress={onPress}
+            style={[styles.statCard, { backgroundColor: C.cardBg, borderColor: C.cardBorder }]}
+            activeOpacity={0.75}
+        >
+            <Text style={[styles.statValue, { color: accent ? C.accentRed : C.accent }]}>{value}</Text>
+            <Text style={[styles.statLabel, { color: C.text, fontFamily: 'Georgia' }]}>{label}</Text>
+            <Text style={[styles.statSub, { color: C.textSub }]}>{sub}</Text>
+        </TouchableOpacity>
+    )
+}
+
+function CTAButton({ label, sub, onPress }) {
+    return (
+        <TouchableOpacity onPress={onPress} style={styles.ctaWrap} activeOpacity={0.8}>
+            <LinearGradient
+                colors={['#5a1e96', '#8b5cf6']}
+                start={{ x: 0.13, y: 0.13 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.cta}
+            >
+                <Text style={styles.ctaLabel}>{label}</Text>
+                {sub ? <Text style={styles.ctaSub}>{sub}</Text> : null}
+            </LinearGradient>
+        </TouchableOpacity>
+    )
+}
+
+function RecentCard({ patient, onPress }) {
+    const initials = getInitials(patient.full_name)
+    const badge = patient.patient_type === 'dependent' ? 'Dependent' : 'Independent'
+
+    return (
+        <TouchableOpacity
+            onPress={onPress}
+            style={[styles.recentCard, { backgroundColor: C.cardBg, borderColor: C.cardBorder }]}
+            activeOpacity={0.75}
+        >
+            <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initials}</Text>
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+                    <Text style={[styles.patientName, { color: C.text }]} numberOfLines={1}>{patient.full_name}</Text>
+                </View>
+                <Text style={[styles.patientMeta, { color: C.textSub }]}>{badge} · Added {fmtShort(patient.granted_at)}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={14} color={C.textSub} />
+        </TouchableOpacity>
+    )
+}
+
+const styles = StyleSheet.create({
+    safe:           { flex: 1, backgroundColor: C.bg },
+    scroll:         { flex: 1 },
+    content:        { padding: 20, paddingBottom: 32 },
+
+    greetingBlock:  { marginBottom: 28 },
+    dateLabel:      { fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 },
+    greeting:       { fontSize: 26, fontWeight: '600', fontFamily: 'Georgia', letterSpacing: -0.2, lineHeight: 34 },
+
+    statRow:        { gap: 12, paddingRight: 4 },
+    statCard:       { minWidth: 120, borderWidth: 1, borderRadius: 16, padding: 16 },
+    statValue:      { fontSize: 24, fontWeight: '700', marginBottom: 4, lineHeight: 28 },
+    statLabel:      { fontSize: 12, fontWeight: '500', marginBottom: 2 },
+    statSub:        { fontSize: 11 },
+
+    ctaWrap:        { borderRadius: 18, overflow: 'hidden' },
+    cta:            { borderRadius: 18, padding: 20, gap: 4 },
+    ctaLabel:       { fontSize: 16, fontWeight: '700', color: 'white' },
+    ctaSub:         { fontSize: 12, color: 'rgba(255,255,255,0.82)' },
+
+    sectionLabel:   { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12 },
+    emptyText:      { fontSize: 14, textAlign: 'center', marginTop: 40 },
+
+    recentCard:     { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, padding: 13 },
+    avatar:         { width: 36, height: 36, borderRadius: 18, backgroundColor: '#5a1e96', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    avatarText:     { color: 'white', fontSize: 13, fontWeight: '700' },
+    patientName:    { fontWeight: '600', fontSize: 13 },
+    patientGuardian:{ fontSize: 11 },
+    patientMeta:    { fontSize: 11, marginTop: 2 },
+})

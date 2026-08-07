@@ -14,10 +14,16 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         (async () => {
-            const token = await AsyncStorage.getItem('medi_token')
+            const [token, storedRole] = await Promise.all([
+                AsyncStorage.getItem('medi_token'),
+                AsyncStorage.getItem('medi_role'),
+            ])
             if (token) {
                 try {
-                    const decoded = JSON.parse(atob(token.split('.')[1]))
+                    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+                    const decoded = JSON.parse(atob(b64))
+                    // Respect the explicitly stored role (set during role-pick) over JWT's default
+                    if (storedRole) decoded.role = storedRole
                     setUser(decoded)
                     api.get('/users/profile').then(async res => {
                         const mode = parseMode(res.data.mode)
@@ -38,7 +44,10 @@ export const AuthProvider = ({ children }) => {
             ['medi_userId', String(userId)],
         ])
         try {
-            const decoded = JSON.parse(atob(token.split('.')[1]))
+            const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+            const decoded = JSON.parse(atob(b64))
+            // Always use the explicitly passed role — JWT may carry the server's default role
+            decoded.role = role
             setUser(decoded)
             api.get('/users/profile').then(async res => {
                 const mode = parseMode(res.data.mode)
@@ -59,7 +68,9 @@ export const AuthProvider = ({ children }) => {
             const res = await api.post('/users/switch-account', { targetRole })
             const { token } = res.data
             await AsyncStorage.multiSet([['medi_token', token], ['medi_role', targetRole]])
-            const decoded = JSON.parse(atob(token.split('.')[1]))
+            const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+            const decoded = JSON.parse(atob(b64))
+            decoded.role = targetRole
             setUser(decoded)
             return targetRole
         } catch (err) {
