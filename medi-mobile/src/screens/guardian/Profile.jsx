@@ -1169,7 +1169,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.3)',
         alignItems: 'center', justifyContent: 'center',
     },
-    profileName: { color: C.text, fontSize: 20, fontWeight: '700' },
+    profileName: { color: C.text, fontSize: 20, fontFamily: 'Calistoga' },
     profileRole: { color: C.accent, fontSize: 12, fontWeight: '500', letterSpacing: 0.5 },
 
     avatarMenuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },

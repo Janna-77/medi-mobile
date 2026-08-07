@@ -43,27 +43,28 @@ export default function Login() {
         try {
             const response = await api.post('/auth/login', formData)
             const { token, userId, role } = response.data
-            login(token, role, userId)
 
             if (role === 'admin') {
+                login(token, role, userId)
                 navigation.navigate('Admin')
                 return
             }
 
-            const decoded = JSON.parse(atob(token.split('.')[1]))
+            // JWT uses base64url — replace url-safe chars before decoding
+            const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+            const decoded = JSON.parse(atob(b64))
             const roles = []
             if (decoded.is_independent) roles.push('independent')
             if (decoded.is_guardian) roles.push('guardian')
             if (decoded.is_doctor) roles.push('doctor')
 
             if (roles.length > 1) {
-                setAccountChooser({ roles })
+                // Don't call login() yet — it triggers navigation before the chooser renders
+                setAccountChooser({ token, userId, roles })
                 return
             }
 
-            if (role === 'doctor') navigation.navigate('DoctorHome')
-            else if (role === 'guardian') navigation.navigate('GuardianHome')
-            else navigation.navigate('IndependentHome')
+            login(token, role, userId)
         } catch (err) {
             if (err.response?.data?.error === 'pending_verification') {
                 setError(t('login.err_pending'))
@@ -97,15 +98,12 @@ export default function Login() {
     }
 
     const handlePickRole = async (pickedRole) => {
-        try {
-            await switchAccount(pickedRole)
-        } catch (err) {
-            console.error('Switch account failed:', err)
-        }
+        const { token, userId } = accountChooser
         setAccountChooser(null)
-        if (pickedRole === 'doctor') navigation.navigate('DoctorHome')
-        else if (pickedRole === 'guardian') navigation.navigate('GuardianHome')
-        else navigation.navigate('IndependentHome')
+        // login() sets user.role = pickedRole immediately → AppNavigator transitions
+        login(token, pickedRole, userId)
+        // Exchange for a role-specific token in the background
+        try { await switchAccount(pickedRole) } catch { }
     }
 
     const switchMode = (next) => {
@@ -202,17 +200,17 @@ export default function Login() {
                                         onSubmitEditing={handleLogin}
                                     />
                                     <Text style={styles.forgotText}>
-                        {t('login.forgot')}{' '}
-                        <Text
-                            style={styles.forgotLink}
-                            onPress={() => Linking.openURL('https://teampassword.com/blog/how-to-find-a-lost-password-from-ages-ago')}
-                        >
-                            {t('login.forgot_link')}
-                        </Text>
-                    </Text>
+                                        {t('login.forgot')}{' '}
+                                        <Text
+                                            style={styles.forgotLink}
+                                            onPress={() => Linking.openURL('https://teampassword.com/blog/how-to-find-a-lost-password-from-ages-ago')}
+                                        >
+                                            {t('login.forgot_link')}
+                                        </Text>
+                                    </Text>
                                 </View>
                                 <BigButton
-                                    label={loading ? t('login.signing_in') : t('login.sign_in')}
+                                    label={loading ? t('login.logging_in') : t('login.log_in')}
                                     onPress={handleLogin}
                                     disabled={loading}
                                     glowColor={STANDARD_BLUE}
@@ -361,10 +359,10 @@ function LangSwitcher({ i18n, t }) {
 
 const styles = StyleSheet.create({
     bg: { flex: 1, alignItems: 'center' },
-    scroll: { alignItems: 'center', paddingVertical: 60, paddingHorizontal: 20, gap: 8 },
-    logo: { width: 100, height: 100, marginBottom: 4 },
+    scroll: { alignItems: 'center', paddingTop: 90, paddingBottom: 60, paddingHorizontal: 20, gap: 8 },
+    logo: { width: 120, height: 120, marginBottom: 4 },
     title: {
-        color: 'white', fontSize: 28, fontWeight: '700', letterSpacing: 0.5,
+        color: 'white', fontSize: 28, fontFamily: 'Calistoga', letterSpacing: 0.5,
         textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 3 }, textShadowRadius: 12,
     },
     subtitle: {
@@ -372,7 +370,7 @@ const styles = StyleSheet.create({
         textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3,
     },
     card: {
-        backgroundColor: 'rgba(255,255,255,0.15)',
+        backgroundColor: 'rgba(255,255,255,0.20)',
         borderRadius: 24, padding: 36,
         width: Math.min(400, width - 40),
         gap: 20,

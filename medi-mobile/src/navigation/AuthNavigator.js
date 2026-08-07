@@ -27,7 +27,7 @@ const Stack = createStackNavigator()
 
 export default function AuthNavigator() {
     return (
-        <Stack.Navigator screenOptions={{ headerShown: false, cardStyle: { flex: 1 } }}>
+        <Stack.Navigator screenOptions={{ headerShown: false, cardStyle: { flex: 1 }, animationEnabled: false }}>
             <Stack.Screen name="Login" component={Login} />
             <Stack.Screen name="SignupChoice" component={SignupChoice} />
             <Stack.Screen name="Verification" component={Placeholder} />

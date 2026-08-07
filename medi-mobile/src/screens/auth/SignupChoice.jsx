@@ -13,7 +13,6 @@ const { width } = Dimensions.get('window')
 export default function SignUpChoice() {
     const navigation = useNavigation()
     const { t, i18n } = useTranslation()
-
     return (
         <ImageBackground
             source={require('../../../assets/login-bg.jpg')}
@@ -140,7 +139,7 @@ const styles = StyleSheet.create({
     tagline: {
         color: 'white',
         fontSize: 28,
-        fontWeight: '700',
+        fontFamily: 'Calistoga',
         textAlign: 'center',
         marginBottom: 24,
         letterSpacing: 0.5,
@@ -167,7 +166,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         color: 'white',
         fontSize: 20,
-        fontWeight: '600',
+        fontFamily: 'Fraunces',
         marginBottom: 10,
         textShadowColor: 'rgba(0,0,0,0.3)',
         textShadowOffset: { width: 0, height: 2 },

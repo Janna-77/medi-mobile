@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
 
     greetingBlock:  { marginBottom: 28 },
     dateLabel:      { fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 },
-    greeting:       { fontSize: 26, fontWeight: '600', fontFamily: 'Georgia', letterSpacing: -0.2, lineHeight: 34 },
+    greeting:       { fontSize: 26, fontFamily: 'Calistoga', letterSpacing: -0.2, lineHeight: 34 },
 
     statRow:        { gap: 12, paddingRight: 4 },
     statCard:       { minWidth: 120, borderWidth: 1, borderRadius: 16, padding: 16 },

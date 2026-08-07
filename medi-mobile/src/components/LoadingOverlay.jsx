@@ -131,14 +131,20 @@ function ECGTrace({ role }) {
 // ─── Full-screen loading overlay ──────────────────────────────────────────────
 
 export default function LoadingOverlay({ visible, role }) {
-    const fadeAnim = useRef(new Animated.Value(1)).current
+    // Start fully opaque so there's no fade-in flash on initial mount
+    const fadeAnim = useRef(new Animated.Value(visible ? 1 : 0)).current
     const [show, setShow] = useState(visible)
+    const mounted = useRef(false)
 
     useEffect(() => {
+        if (!mounted.current) {
+            // First render — already at the correct opacity, nothing to animate
+            mounted.current = true
+            return
+        }
         if (visible) {
             setShow(true)
-            fadeAnim.setValue(0)
-            Animated.timing(fadeAnim, { toValue: 1, duration: 320, useNativeDriver: true }).start()
+            fadeAnim.setValue(1)
         } else {
             Animated.timing(fadeAnim, { toValue: 0, duration: 320, useNativeDriver: true })
                 .start(() => setShow(false))
