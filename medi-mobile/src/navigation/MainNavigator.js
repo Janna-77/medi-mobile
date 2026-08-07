@@ -9,6 +9,8 @@ import GuardianHome from '../screens/guardian/Home'
 import GuardianProfile from '../screens/guardian/Profile'
 import DoctorHome from '../screens/doctor/Home'
 import DoctorProfile from '../screens/doctor/Profile'
+import DoctorPatients from '../screens/doctor/Patients'
+import PatientView from '../screens/doctor/PatientView'
 import Notifications from '../screens/shared/Notifications'
 import Subscriptions from '../screens/shared/Subscriptions'
 import ReportSmth from '../screens/shared/ReportSmth'
@@ -68,7 +70,8 @@ export default function MainNavigator() {
             {/* ── Doctor ── */}
             <Stack.Screen name="DoctorHome" component={DoctorHome} />
             <Stack.Screen name="DoctorProfile" component={DoctorProfile} />
-            <Stack.Screen name="DoctorPatients" component={Soon} />
+            <Stack.Screen name="DoctorPatients" component={DoctorPatients} />
+            <Stack.Screen name="PatientView" component={PatientView} />
 
             {/* ── Dependent ── */}
             <Stack.Screen name="DependentHome" component={Soon} />

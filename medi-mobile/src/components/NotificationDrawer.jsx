@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
     View, Text, TextInput, TouchableOpacity, Modal, Animated,
-    ScrollView, StyleSheet, Pressable,
+    ScrollView, StyleSheet, Pressable, DeviceEventEmitter,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import api from '../api/axios'
@@ -120,8 +120,8 @@ export default function NotificationDrawer({ role, onClose }) {
     const denyLink       = async (n) => { await api.post('/dependents/deny-link',       { notification_id: n.notification_id }); await markRead(n.notification_id) }
     const approveSummary = async (n) => { const { dependentId } = parseSummaryReq(n.message); await api.post('/dependents/approve-summary', { notification_id: n.notification_id, dependent_id: dependentId }); await markRead(n.notification_id) }
     const denySummary    = async (n) => { await api.post('/dependents/deny-summary',   { notification_id: n.notification_id }); await markRead(n.notification_id) }
-    const approveAccess  = async (n) => { const { accessId } = parseAccessReq(n.message); await api.patch(`/doctors/access/${accessId}/approve`); await markRead(n.notification_id) }
-    const denyAccess     = async (n) => { const { accessId } = parseAccessReq(n.message); await api.patch(`/doctors/access/${accessId}/deny`);    await markRead(n.notification_id) }
+    const approveAccess  = async (n) => { const { accessId } = parseAccessReq(n.message); await api.patch(`/doctors/access/${accessId}/approve`); await markRead(n.notification_id); DeviceEventEmitter.emit('doctor_access_changed') }
+    const denyAccess     = async (n) => { const { accessId } = parseAccessReq(n.message); await api.patch(`/doctors/access/${accessId}/deny`);    await markRead(n.notification_id); DeviceEventEmitter.emit('doctor_access_changed') }
 
     const glass    = GLASS_BG[role]    ?? GLASS_BG.independent
     const dotColor = DOT_COLOR[role]   ?? DOT_COLOR.independent

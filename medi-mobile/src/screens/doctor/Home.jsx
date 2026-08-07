@@ -154,7 +154,7 @@ export default function DoctorHome() {
                                 <RecentCard
                                     key={p.access_id}
                                     patient={p}
-                                    onPress={() => navigation.navigate('PatientView', { patientId: p.patient_id })}
+                                    onPress={() => navigation.navigate('PatientView', { patientId: p.patient_id, patientName: p.full_name, patientType: p.patient_type, guardianName: p.guardian_name })}
                                 />
                             ))}
                         </View>
