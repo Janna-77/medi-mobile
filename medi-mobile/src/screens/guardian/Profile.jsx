@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import {
     View, Text, TouchableOpacity, TextInput, ScrollView,
-    StyleSheet, Alert, Modal, Pressable, Image, Switch, SafeAreaView, Animated,
+    StyleSheet, Alert, Modal, Pressable, Image, Switch, SafeAreaView, Animated, RefreshControl,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import * as ImagePicker from 'expo-image-picker'
@@ -13,6 +13,9 @@ import api from '../../api/axios'
 import Header from '../../components/Header'
 import BottomNav from '../../components/BottomNav'
 import LoadingOverlay from '../../components/LoadingOverlay'
+import { getCache, setCache, clearCache } from '../../utils/pageCache'
+
+const CACHE_KEY = 'guardian_profile'
 
 // ── Theme helpers ────────────────────────────────────────────────────────────
 
@@ -60,10 +63,13 @@ export default function GuardianProfile() {
     const lightMode = mode === 'light'
     const sep = { height: 0.7, backgroundColor: C.cardBorder, marginHorizontal: 10 }
 
-    const [loading, setLoading] = useState(true)
-    const [profile, setProfile] = useState(null)
-    const [accountStatus, setAccountStatus] = useState(null)
-    const [dependents, setDependents] = useState([])
+    const _c = getCache(CACHE_KEY)
+    const [loading, setLoading] = useState(!_c)
+    const [profile, setProfile] = useState(_c?.profile ?? null)
+    const [accountStatus, setAccountStatus] = useState(_c?.accountStatus ?? null)
+    const [dependents, setDependents] = useState(_c?.dependents ?? [])
+    const [refreshing, setRefreshing] = useState(false)
+    const [fetchKey, setFetchKey] = useState(0)
     const [modeLoading, setModeLoading] = useState(false)
     const [detailModal, setDetailModal] = useState(null)
     const [section, setSection] = useState('access')
@@ -75,16 +81,35 @@ export default function GuardianProfile() {
     const slideAnim = useRef(new Animated.Value(0)).current
 
     useEffect(() => {
+        const cached = getCache(CACHE_KEY)
+        if (cached && fetchKey === 0) {
+            setProfile(cached.profile)
+            setAccountStatus(cached.accountStatus)
+            setDependents(cached.dependents)
+            setLoading(false)
+            return
+        }
+        setLoading(true)
         Promise.allSettled([
             api.get('/users/profile'),
             api.get('/upgrade/status'),
             api.get('/dependents'),
         ]).then(([profileRes, statusRes, depsRes]) => {
-            if (profileRes.status === 'fulfilled') setProfile(profileRes.value.data)
-            if (statusRes.status === 'fulfilled') setAccountStatus(statusRes.value.data)
-            if (depsRes.status === 'fulfilled') setDependents(depsRes.value.data || [])
-        }).finally(() => setLoading(false))
-    }, [])
+            const p = profileRes.status === 'fulfilled' ? profileRes.value.data : null
+            const s = statusRes.status === 'fulfilled' ? statusRes.value.data : null
+            const d = depsRes.status === 'fulfilled' ? (depsRes.value.data || []) : []
+            if (p) setProfile(p)
+            if (s) setAccountStatus(s)
+            setDependents(d)
+            setCache(CACHE_KEY, { profile: p, accountStatus: s, dependents: d })
+        }).finally(() => { setLoading(false); setRefreshing(false) })
+    }, [fetchKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    const refresh = () => {
+        clearCache(CACHE_KEY)
+        setRefreshing(true)
+        setFetchKey(k => k + 1)
+    }
 
     useEffect(() => {
         Animated.timing(slideAnim, {
@@ -155,7 +180,7 @@ export default function GuardianProfile() {
             <Header role="guardian" />
             <View style={{ flex: 1 }}>
                 <LoadingOverlay visible={loading} role="guardian" />
-                <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }}>
+                <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} colors={[C.accent]} />}>
 
                     {/* Avatar + name */}
                     <View style={{ alignItems: 'center', marginBottom: 28, gap: 12 }}>

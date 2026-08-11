@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import {
     View, Text, TouchableOpacity, TextInput, ScrollView,
-    StyleSheet, Alert, Modal, Pressable, Image, Switch, SafeAreaView,
+    StyleSheet, Alert, Modal, Pressable, Image, Switch, SafeAreaView, RefreshControl,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import * as ImagePicker from 'expo-image-picker'
@@ -11,6 +11,9 @@ import { useTheme } from '../../context/ThemeContext'
 import api from '../../api/axios'
 import Header from '../../components/Header'
 import LoadingOverlay from '../../components/LoadingOverlay'
+import { getCache, setCache, clearCache } from '../../utils/pageCache'
+
+const CACHE_KEY = 'doctor_profile'
 
 // ── Theme helpers ────────────────────────────────────────────────────────────
 
@@ -63,24 +66,44 @@ export default function DoctorProfile() {
     const lightMode = mode === 'light'
     const sep = { height: 0.7, backgroundColor: C.cardBorder, marginHorizontal: 10 }
 
-    const [loading, setLoading] = useState(true)
-    const [profile, setProfile] = useState(null)
-    const [accountStatus, setAccountStatus] = useState(null)
+    const _c = getCache(CACHE_KEY)
+    const [loading, setLoading] = useState(!_c)
+    const [profile, setProfile] = useState(_c?.profile ?? null)
+    const [accountStatus, setAccountStatus] = useState(_c?.accountStatus ?? null)
     const [modeLoading, setModeLoading] = useState(false)
+    const [refreshing, setRefreshing] = useState(false)
+    const [fetchKey, setFetchKey] = useState(0)
     const [detailModal, setDetailModal] = useState(null)
     const [switchingRole, setSwitchingRole] = useState(null)
     const [avatarUploading, setAvatarUploading] = useState(false)
     const [avatarMenuOpen, setAvatarMenuOpen] = useState(false)
 
     useEffect(() => {
+        const cached = getCache(CACHE_KEY)
+        if (cached && fetchKey === 0) {
+            setProfile(cached.profile)
+            setAccountStatus(cached.accountStatus)
+            setLoading(false)
+            return
+        }
+        setLoading(true)
         Promise.allSettled([
             api.get('/users/profile'),
             api.get('/upgrade/status'),
         ]).then(([profileRes, statusRes]) => {
-            if (profileRes.status === 'fulfilled') setProfile(profileRes.value.data)
-            if (statusRes.status === 'fulfilled') setAccountStatus(statusRes.value.data)
-        }).finally(() => setLoading(false))
-    }, [])
+            const p = profileRes.status === 'fulfilled' ? profileRes.value.data : null
+            const s = statusRes.status === 'fulfilled' ? statusRes.value.data : null
+            if (p) setProfile(p)
+            if (s) setAccountStatus(s)
+            setCache(CACHE_KEY, { profile: p, accountStatus: s })
+        }).finally(() => { setLoading(false); setRefreshing(false) })
+    }, [fetchKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    const refresh = () => {
+        clearCache(CACHE_KEY)
+        setRefreshing(true)
+        setFetchKey(k => k + 1)
+    }
 
     const handleModeToggle = async () => {
         const newMode = mode === 'light' ? 'dark' : 'light'
@@ -146,7 +169,7 @@ export default function DoctorProfile() {
             <Header role="doctor" />
             <View style={{ flex: 1 }}>
                 <LoadingOverlay visible={loading} role="doctor" />
-                <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }}>
+                <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} colors={[C.accent]} />}>
 
                     {/* Avatar + name */}
                     <View style={{ alignItems: 'center', marginBottom: 28, gap: 12 }}>

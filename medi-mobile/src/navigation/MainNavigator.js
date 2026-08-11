@@ -11,6 +11,10 @@ import DoctorHome from '../screens/doctor/Home'
 import DoctorProfile from '../screens/doctor/Profile'
 import DoctorPatients from '../screens/doctor/Patients'
 import PatientView from '../screens/doctor/PatientView'
+import IndependentRecords from '../screens/independent/Records'
+import IndependentAI from '../screens/independent/AI'
+import GuardianRecords from '../screens/guardian/Records'
+import GuardianAI from '../screens/guardian/AI'
 import Notifications from '../screens/shared/Notifications'
 import Subscriptions from '../screens/shared/Subscriptions'
 import ReportSmth from '../screens/shared/ReportSmth'
@@ -56,16 +60,16 @@ export default function MainNavigator() {
             <Stack.Screen name="IndependentHome" component={IndependentHome} />
             <Stack.Screen name="IndependentProfile" component={IndependentProfile} />
             <Stack.Screen name="IndependentSettings" component={Soon} />
-            <Stack.Screen name="IndependentRecords" component={Soon} />
-            <Stack.Screen name="IndependentAI" component={Soon} />
+            <Stack.Screen name="IndependentRecords" component={IndependentRecords} />
+            <Stack.Screen name="IndependentAI" component={IndependentAI} />
 
             {/* ── Guardian ── */}
             <Stack.Screen name="GuardianHome" component={GuardianHome} />
             <Stack.Screen name="GuardianSettings" component={Soon} />
             <Stack.Screen name="GuardianProfile" component={GuardianProfile} />
             <Stack.Screen name="AddDependent" component={AddDependent} />
-            <Stack.Screen name="GuardianRecords" component={Soon} />
-            <Stack.Screen name="GuardianAI" component={Soon} />
+            <Stack.Screen name="GuardianRecords" component={GuardianRecords} />
+            <Stack.Screen name="GuardianAI" component={GuardianAI} />
 
             {/* ── Doctor ── */}
             <Stack.Screen name="DoctorHome" component={DoctorHome} />

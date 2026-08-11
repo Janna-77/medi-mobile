@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import api from '../api/axios'
+import api, { setAuthFailureHandler } from '../api/axios'
+import { clearAllCaches } from '../utils/pageCache'
 
 export const authContext = createContext()
 export const useAuth = () => useContext(authContext)
@@ -59,9 +60,16 @@ export const AuthProvider = ({ children }) => {
     }
 
     const logout = async () => {
+        clearAllCaches()
         await AsyncStorage.multiRemove(['medi_token', 'medi_role', 'medi_userId', 'medi_mode'])
         setUser(null)
     }
+
+    // Give the axios interceptor access to the real logout so a 401 properly
+    // clears user state and triggers navigation back to auth screens
+    useEffect(() => {
+        setAuthFailureHandler(logout)
+    }, [])
 
     const switchAccount = async (targetRole) => {
         try {

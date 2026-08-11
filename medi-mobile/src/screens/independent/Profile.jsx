@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import {
     View, Text, TouchableOpacity, TextInput, ScrollView,
-    StyleSheet, Alert, Modal, Pressable, Image, Switch, SafeAreaView, Animated,
+    StyleSheet, Alert, Modal, Pressable, Image, Switch, SafeAreaView, Animated, RefreshControl,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import * as ImagePicker from 'expo-image-picker'
@@ -12,6 +12,9 @@ import Header from '../../components/Header'
 import BottomNav from '../../components/BottomNav'
 import DoctorAccessPanel from '../../components/DoctorAccessPanel'
 import LoadingOverlay from '../../components/LoadingOverlay'
+import { getCache, setCache, clearCache } from '../../utils/pageCache'
+
+const CACHE_KEY = 'independent_profile'
 
 // ── Theme helpers ────────────────────────────────────────────────────────────
 
@@ -98,10 +101,13 @@ export default function IndependentProfile() {
     const lightMode = mode === 'light'
     const sep = { height: 0.7, backgroundColor: C.cardBorder, marginHorizontal: 10 }
 
-    const [loading, setLoading] = useState(true)
-    const [profile, setProfile] = useState(null)
-    const [accountStatus, setAccountStatus] = useState(null)
+    const _c = getCache(CACHE_KEY)
+    const [loading, setLoading] = useState(!_c)
+    const [profile, setProfile] = useState(_c?.profile ?? null)
+    const [accountStatus, setAccountStatus] = useState(_c?.accountStatus ?? null)
     const [doctorVerified, setDoctorVerified] = useState(false)
+    const [refreshing, setRefreshing] = useState(false)
+    const [fetchKey, setFetchKey] = useState(0)
     const [modeLoading, setModeLoading] = useState(false)
     const [detailModal, setDetailModal] = useState(null)
     const [section, setSection] = useState('doctors')
@@ -112,14 +118,31 @@ export default function IndependentProfile() {
     const slideAnim = useRef(new Animated.Value(0)).current
 
     useEffect(() => {
+        const cached = getCache(CACHE_KEY)
+        if (cached && fetchKey === 0) {
+            setProfile(cached.profile)
+            setAccountStatus(cached.accountStatus)
+            setLoading(false)
+            return
+        }
+        setLoading(true)
         Promise.allSettled([
             api.get('/users/profile'),
             api.get('/upgrade/status'),
         ]).then(([profileRes, statusRes]) => {
-            if (profileRes.status === 'fulfilled') setProfile(profileRes.value.data)
-            if (statusRes.status === 'fulfilled') setAccountStatus(statusRes.value.data)
-        }).finally(() => setLoading(false))
-    }, [])
+            const p = profileRes.status === 'fulfilled' ? profileRes.value.data : null
+            const s = statusRes.status === 'fulfilled' ? statusRes.value.data : null
+            if (p) setProfile(p)
+            if (s) setAccountStatus(s)
+            setCache(CACHE_KEY, { profile: p, accountStatus: s })
+        }).finally(() => { setLoading(false); setRefreshing(false) })
+    }, [fetchKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    const refresh = () => {
+        clearCache(CACHE_KEY)
+        setRefreshing(true)
+        setFetchKey(k => k + 1)
+    }
 
     useEffect(() => {
         if (!accountStatus?.is_doctor) return
@@ -197,7 +220,7 @@ export default function IndependentProfile() {
             <Header role="independent" />
             <View style={{ flex: 1 }}>
                 <LoadingOverlay visible={loading} role="independent" />
-                <ScrollView contentContainerStyle={styles.content}>
+                <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} colors={[C.accent]} />}>
 
                     {/* Avatar */}
                     <View style={styles.avatarSection}>

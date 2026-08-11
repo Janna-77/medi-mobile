@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
     View, Text, TouchableOpacity, ScrollView,
-    SafeAreaView,
+    SafeAreaView, RefreshControl,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { Ionicons } from '@expo/vector-icons'
@@ -10,6 +10,9 @@ import Header from '../../components/Header'
 import LoadingOverlay from '../../components/LoadingOverlay'
 import api from '../../api/axios'
 import { useTheme } from '../../context/ThemeContext'
+import { getCache, setCache, clearCache } from '../../utils/pageCache'
+
+const CACHE_KEY = 'doctor_home'
 
 function makeC(theme) {
     return {
@@ -77,22 +80,44 @@ export default function DoctorHome() {
     const C = makeC(theme)
     const styles = getStyles(C)
 
-    const [profile, setProfile] = useState(null)
-    const [patients, setPatients] = useState([])
-    const [pending, setPending] = useState([])
-    const [loading, setLoading] = useState(true)
+    const _c = getCache(CACHE_KEY)
+    const [profile, setProfile] = useState(_c?.profile ?? null)
+    const [patients, setPatients] = useState(_c?.patients ?? [])
+    const [pending, setPending] = useState(_c?.pending ?? [])
+    const [loading, setLoading] = useState(!_c)
+    const [refreshing, setRefreshing] = useState(false)
+    const [fetchKey, setFetchKey] = useState(0)
 
     useEffect(() => {
+        const cached = getCache(CACHE_KEY)
+        if (cached && fetchKey === 0) {
+            setProfile(cached.profile)
+            setPatients(cached.patients)
+            setPending(cached.pending)
+            setLoading(false)
+            return
+        }
+        setLoading(true)
         Promise.allSettled([
             api.get('/users/profile'),
             api.get('/doctors/patients'),
             api.get('/doctors/pending'),
         ]).then(([profileRes, patientsRes, pendingRes]) => {
-            if (profileRes.status === 'fulfilled') setProfile(profileRes.value.data)
-            if (patientsRes.status === 'fulfilled') setPatients(patientsRes.value.data ?? [])
-            if (pendingRes.status === 'fulfilled') setPending(pendingRes.value.data ?? [])
-        }).finally(() => setLoading(false))
-    }, [])
+            const p = profileRes.status === 'fulfilled' ? profileRes.value.data : null
+            const pts = patientsRes.status === 'fulfilled' ? (patientsRes.value.data ?? []) : []
+            const pnd = pendingRes.status === 'fulfilled' ? (pendingRes.value.data ?? []) : []
+            if (p) setProfile(p)
+            setPatients(pts)
+            setPending(pnd)
+            setCache(CACHE_KEY, { profile: p, patients: pts, pending: pnd })
+        }).finally(() => { setLoading(false); setRefreshing(false) })
+    }, [fetchKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    const refresh = () => {
+        clearCache(CACHE_KEY)
+        setRefreshing(true)
+        setFetchKey(k => k + 1)
+    }
 
     const lastName = profile?.full_name?.trim().split(/\s+/).pop() || ''
     const todayStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -121,6 +146,7 @@ export default function DoctorHome() {
                 style={styles.scroll}
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} colors={[C.accent]} />}
             >
                 {/* Greeting */}
                 <View style={styles.greetingBlock}>

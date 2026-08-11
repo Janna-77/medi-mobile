@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import {
     View, Text, TouchableOpacity, ScrollView,
-    SafeAreaView, Linking, Animated,
+    SafeAreaView, Linking, Animated, RefreshControl,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import Svg, { Path, Rect, Circle, Polyline } from 'react-native-svg'
@@ -9,6 +9,7 @@ import Header from '../../components/Header'
 import LoadingOverlay from '../../components/LoadingOverlay'
 import api from '../../api/axios'
 import { useTheme } from '../../context/ThemeContext'
+import { getCache, setCache, clearCache } from '../../utils/pageCache'
 
 function makeC(theme) {
     return {
@@ -37,24 +38,41 @@ export default function PatientView({ route }) {
     const C = makeC(theme)
     const { patientId, patientName, patientType, guardianName } = route.params
 
-    const [records, setRecords]                     = useState([])
-    const [summaries, setSummaries]                 = useState({})
-    const [patientPhone, setPatientPhone]           = useState(null)
-    const [loading, setLoading]                     = useState(true)
+    const CACHE_KEY = `doctor_patient_${patientId}`
+    const _c = getCache(CACHE_KEY)
+    const [records, setRecords]                     = useState(_c?.records ?? [])
+    const [summaries, setSummaries]                 = useState(_c?.summaries ?? {})
+    const [patientPhone, setPatientPhone]           = useState(_c?.patientPhone ?? null)
+    const [loading, setLoading]                     = useState(!_c)
     const [activeTab, setActiveTab]                 = useState('records')
-    const [activeSummaryType, setActiveSummaryType] = useState(null)
+    const [activeSummaryType, setActiveSummaryType] = useState(_c ? (SUMMARY_TYPES.find(t => _c.summaries[t.value])?.value ?? null) : null)
     const [showCopied, setShowCopied]               = useState(false)
+    const [refreshing, setRefreshing]               = useState(false)
+    const [fetchKey, setFetchKey]                   = useState(0)
     const fadeAnim = useRef(new Animated.Value(0)).current
 
     useEffect(() => {
+        const cached = getCache(CACHE_KEY)
+        if (cached && fetchKey === 0) {
+            setRecords(cached.records)
+            setSummaries(cached.summaries)
+            setPatientPhone(cached.patientPhone)
+            const first = SUMMARY_TYPES.find(t => cached.summaries[t.value])
+            if (first) setActiveSummaryType(first.value)
+            setLoading(false)
+            return
+        }
+        setLoading(true)
         const fetchData = async () => {
             try {
                 const [recordsRes, phoneRes] = await Promise.allSettled([
                     api.get(`/medical?patient_id=${patientId}`),
                     api.get(`/doctors/patient-phone?patient_id=${patientId}`),
                 ])
-                if (recordsRes.status === 'fulfilled') setRecords(recordsRes.value.data)
-                if (phoneRes.status === 'fulfilled') setPatientPhone(phoneRes.value.data.phone_number || null)
+                const newRecords = recordsRes.status === 'fulfilled' ? recordsRes.value.data : []
+                const newPhone = phoneRes.status === 'fulfilled' ? (phoneRes.value.data.phone_number || null) : null
+                if (recordsRes.status === 'fulfilled') setRecords(newRecords)
+                if (phoneRes.status === 'fulfilled') setPatientPhone(newPhone)
 
                 const results = {}
                 await Promise.all(
@@ -68,6 +86,7 @@ export default function PatientView({ route }) {
                     })
                 )
                 setSummaries(results)
+                setCache(CACHE_KEY, { records: newRecords, summaries: results, patientPhone: newPhone })
 
                 const firstAvailable = SUMMARY_TYPES.find(t => results[t.value])
                 if (firstAvailable) setActiveSummaryType(firstAvailable.value)
@@ -75,10 +94,17 @@ export default function PatientView({ route }) {
                 console.error(err)
             } finally {
                 setLoading(false)
+                setRefreshing(false)
             }
         }
         fetchData()
-    }, [patientId])
+    }, [patientId, fetchKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    const refresh = () => {
+        clearCache(CACHE_KEY)
+        setRefreshing(true)
+        setFetchKey(k => k + 1)
+    }
 
     const handlePhonePress = () => {
         if (showCopied) return
@@ -104,6 +130,7 @@ export default function PatientView({ route }) {
             <ScrollView
                 contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
                 showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} colors={[C.accent]} />}
             >
                 {/* Confidential notice */}
                 <View style={{ backgroundColor: C.cardBg, borderWidth: 1, borderColor: C.cardBorder, borderRadius: 12, padding: 10, marginBottom: 16, alignItems: 'center' }}>

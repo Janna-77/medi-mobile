@@ -1,15 +1,19 @@
+import { useState, useEffect } from 'react'
 import {
     View, Text, TouchableOpacity, ScrollView,
-    SafeAreaView,
+    SafeAreaView, RefreshControl,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
+import Svg, { Path } from 'react-native-svg'
 import useIndependentDashboard from '../../hooks/useIndependentDashboard'
 import Header from '../../components/Header'
 import LoadingOverlay from '../../components/LoadingOverlay'
 import BottomNav from '../../components/BottomNav'
+import SavedChatsDrawer from '../../components/SavedChatsDrawer'
 import { useTheme } from '../../context/ThemeContext'
+import { clearCache } from '../../utils/pageCache'
 
 const SUMMARY_LABELS = {
     SOAP: 'SOAP Note',
@@ -19,46 +23,46 @@ const SUMMARY_LABELS = {
 
 function makeC(theme) {
     return {
-        bg:              theme.pageBg,
-        cardBg:          theme.cardBg,
-        cardBorder:      theme.cardBorder,
-        cardBorderActive:theme.cardBorderActive,
-        text:            theme.textPrimary,
-        textSub:         theme.textSecondary,
-        textMuted:       theme.textMuted,
-        accent:          theme.accent,
-        accentLabel:     theme.accentLabel,
+        bg: theme.pageBg,
+        cardBg: theme.cardBg,
+        cardBorder: theme.cardBorder,
+        cardBorderActive: theme.cardBorderActive,
+        text: theme.textPrimary,
+        textSub: theme.textSecondary,
+        textMuted: theme.textMuted,
+        accent: theme.accent,
+        accentLabel: theme.accentLabel,
     }
 }
 
 function getStyles(C) {
     return {
-        safe:         { flex: 1, backgroundColor: C.bg },
-        scroll:       { flex: 1 },
-        content:      { padding: 20, paddingBottom: 12 },
+        safe: { flex: 1, backgroundColor: C.bg },
+        scroll: { flex: 1 },
+        content: { padding: 20, paddingBottom: 12 },
 
-        greetingBlock:{ marginBottom: 28 },
-        dateLabel:    { fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 },
-        greeting:     { fontSize: 26, fontFamily: 'Calistoga', letterSpacing: -0.2, lineHeight: 34 },
+        greetingBlock: { marginBottom: 28 },
+        dateLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 },
+        greeting: { fontSize: 26, fontFamily: 'Calistoga', letterSpacing: -0.2, lineHeight: 34 },
 
-        statRow:      { gap: 12, paddingRight: 4 },
-        statCard:     { minWidth: 120, borderWidth: 1, borderRadius: 16, padding: 16, backgroundColor: C.cardBg, borderColor: C.cardBorder },
-        statValue:    { fontSize: 24, fontWeight: '700', marginBottom: 4, lineHeight: 28, color: C.accent },
-        statLabel:    { fontSize: 12, fontWeight: '500', marginBottom: 2, color: C.text, fontFamily: 'Georgia' },
-        statSub:      { fontSize: 11, color: C.textSub },
+        statRow: { gap: 12, paddingRight: 4 },
+        statCard: { minWidth: 120, borderWidth: 1, borderRadius: 16, padding: 16, backgroundColor: C.cardBg, borderColor: C.cardBorder },
+        statValue: { fontSize: 24, fontWeight: '700', marginBottom: 4, lineHeight: 28, color: C.accent },
+        statLabel: { fontSize: 12, fontWeight: '500', marginBottom: 2, color: C.text, fontFamily: 'Georgia' },
+        statSub: { fontSize: 11, color: C.textSub },
 
-        ctaWrap:      { borderRadius: 18, overflow: 'hidden' },
-        cta:          { borderRadius: 18, padding: 20, gap: 4 },
-        ctaLabel:     { fontSize: 16, fontWeight: '700', color: 'white' },
-        ctaSub:       { fontSize: 12, color: 'rgba(255,255,255,0.82)' },
+        ctaWrap: { borderRadius: 18, overflow: 'hidden' },
+        cta: { borderRadius: 18, padding: 20, gap: 4 },
+        ctaLabel: { fontSize: 16, fontWeight: '700', color: 'white' },
+        ctaSub: { fontSize: 12, color: 'rgba(255,255,255,0.82)' },
 
         sectionLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12, color: C.textSub },
-        emptyText:    { fontSize: 14, textAlign: 'center', marginTop: 40, color: C.textMuted },
+        emptyText: { fontSize: 14, textAlign: 'center', marginTop: 40, color: C.textMuted },
 
-        actCard:      { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, padding: 13, backgroundColor: C.cardBg, borderColor: C.cardBorder },
-        actIconWrap:  { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0, backgroundColor: `${C.accent}1a` },
-        actTitle:     { fontWeight: '600', fontSize: 13, marginBottom: 2, color: C.text },
-        actSub:       { fontSize: 11, color: C.textSub },
+        actCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, padding: 13, backgroundColor: C.cardBg, borderColor: C.cardBorder },
+        actIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0, backgroundColor: `${C.accent}1a` },
+        actTitle: { fontWeight: '600', fontSize: 13, marginBottom: 2, color: C.text },
+        actSub: { fontSize: 11, color: C.textSub },
     }
 }
 
@@ -82,81 +86,109 @@ export default function IndependentHome() {
     const C = makeC(theme)
     const styles = getStyles(C)
 
+    const [savedChatsOpen, setSavedChatsOpen] = useState(false)
+    const [refreshing, setRefreshing] = useState(false)
+    const [fetchKey, setFetchKey] = useState(0)
+
     const {
         loading, profile,
         totalRecords, lastUpload, doctorsCount, latestSummary,
         recentActivity, ctaType,
-    } = useIndependentDashboard()
+    } = useIndependentDashboard(fetchKey)
+
+    useEffect(() => {
+        if (!loading && refreshing) setRefreshing(false)
+    }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    const refresh = () => {
+        clearCache('independent_dashboard')
+        setRefreshing(true)
+        setFetchKey(k => k + 1)
+    }
 
     const todayStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
     const firstName = profile?.full_name?.split(' ')[0] || ''
 
     const cta = {
-        upload:  { label: 'Upload your first record →', sub: 'Add a medical document to get started',  screen: 'IndependentRecords' },
-        summary: { label: 'Generate your first summary →', sub: 'Let Medi AI summarize your records',  screen: 'IndependentAI' },
-        ai:      { label: 'Ask Medi AI →',               sub: 'Your records are ready — ask anything', screen: 'IndependentAI' },
+        upload: { label: 'Upload your first record →', sub: 'Add a medical document to get started', screen: 'IndependentRecords' },
+        summary: { label: 'Generate your first summary →', sub: 'Generate a medical summary using your records', screen: 'IndependentRecords' },
+        ai: { label: 'Ask Medi AI →', sub: 'Your records are ready — ask anything', screen: 'IndependentAI' },
     }[ctaType] ?? { label: 'Ask Medi AI →', sub: '', screen: 'IndependentAI' }
 
     return (
         <SafeAreaView style={styles.safe}>
             <Header role="independent" />
             <View style={{ flex: 1 }}>
-            <LoadingOverlay visible={loading} role="independent" />
-            <ScrollView
-                style={styles.scroll}
-                contentContainerStyle={styles.content}
-                showsVerticalScrollIndicator={false}
-            >
-                {/* Greeting */}
-                <View style={styles.greetingBlock}>
-                    <Text style={[styles.dateLabel, { color: C.accentLabel }]}>{todayStr}</Text>
-                    <Text style={[styles.greeting, { color: C.text }]}>
-                        {getGreeting()}{firstName ? `, ${firstName}` : ''}
-                    </Text>
-                </View>
-
-                {/* Stat cards */}
+                <LoadingOverlay visible={loading} role="independent" />
                 <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.statRow}
-                    style={{ marginBottom: 24 }}
+                    style={styles.scroll}
+                    contentContainerStyle={styles.content}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} colors={[C.accent]} />}
                 >
-                    <StatCard label="Records"     value={loading ? '…' : String(totalRecords)}  sub="uploaded"   onPress={() => navigation.navigate('IndependentRecords')} />
-                    <StatCard label="Last Upload" value={loading ? '…' : fmtShort(lastUpload)}  sub={lastUpload ? String(new Date(lastUpload).getFullYear()) : 'none yet'} onPress={() => navigation.navigate('IndependentRecords')} />
-                    <StatCard label="Doctors"     value={loading ? '…' : String(doctorsCount)}  sub="with access" onPress={() => navigation.navigate('IndependentProfile')} />
-                    <StatCard
-                        label="Summary"
-                        value={loading ? '…' : (latestSummary ? (SUMMARY_LABELS[latestSummary.summary_type] || latestSummary.summary_type) : '—')}
-                        sub={latestSummary ? fmtShort(latestSummary.generated_at) : 'none yet'}
-                        onPress={() => navigation.navigate('IndependentRecords')}
-                    />
-                </ScrollView>
-
-                {/* CTA */}
-                <CTAButton label={cta.label} sub={cta.sub} onPress={() => navigation.navigate(cta.screen)} />
-
-                {/* Recent activity */}
-                {recentActivity.length > 0 && (
-                    <View style={{ marginTop: 32 }}>
-                        <Text style={styles.sectionLabel}>Recent Activity</Text>
-                        <View style={{ gap: 8 }}>
-                            {recentActivity.map((item, i) => (
-                                <ActivityCard key={i} item={item} navigation={navigation} />
-                            ))}
-                        </View>
+                    {/* Greeting */}
+                    <View style={styles.greetingBlock}>
+                        <Text style={[styles.dateLabel, { color: C.accentLabel }]}>{todayStr}</Text>
+                        <Text style={[styles.greeting, { color: C.text }]}>
+                            {getGreeting()}{firstName ? `, ${firstName}` : ''}
+                        </Text>
                     </View>
-                )}
 
-                {!loading && recentActivity.length === 0 && (
-                    <Text style={styles.emptyText}>
-                        No activity yet. Start by uploading a record.
-                    </Text>
-                )}
-            </ScrollView>
+                    {/* Stat cards */}
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.statRow}
+                        style={{ marginBottom: 24 }}
+                    >
+                        <StatCard label="Records" value={loading ? '…' : String(totalRecords)} sub="uploaded" onPress={() => navigation.navigate('IndependentRecords')} />
+                        <StatCard label="Last Upload" value={loading ? '…' : fmtShort(lastUpload)} sub={lastUpload ? String(new Date(lastUpload).getFullYear()) : 'none yet'} onPress={() => navigation.navigate('IndependentRecords')} />
+                        <StatCard label="Doctors" value={loading ? '…' : String(doctorsCount)} sub="with access" onPress={() => navigation.navigate('IndependentProfile')} />
+                        <StatCard
+                            label="Summary"
+                            value={loading ? '…' : (latestSummary ? (SUMMARY_LABELS[latestSummary.summary_type] || latestSummary.summary_type) : '—')}
+                            sub={latestSummary ? fmtShort(latestSummary.generated_at) : 'none yet'}
+                            onPress={() => navigation.navigate('IndependentRecords')}
+                        />
+                    </ScrollView>
+
+                    {/* CTA */}
+                    <CTAButton label={cta.label} sub={cta.sub} onPress={() => navigation.navigate(cta.screen)} />
+
+                    {/* Saved Chats */}
+                    <TouchableOpacity
+                        onPress={() => setSavedChatsOpen(true)}
+                        activeOpacity={0.8}
+                        style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.cardBg, borderWidth: 1, borderColor: C.cardBorder, borderRadius: 14, padding: 14 }}
+                    >
+                        <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <Path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke={C.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </Svg>
+                        <Text style={{ color: C.text, fontSize: 14, fontWeight: '600' }}>Saved Chats</Text>
+                    </TouchableOpacity>
+
+                    {/* Recent activity */}
+                    {recentActivity.length > 0 && (
+                        <View style={{ marginTop: 32 }}>
+                            <Text style={styles.sectionLabel}>Recent Activity</Text>
+                            <View style={{ gap: 8 }}>
+                                {recentActivity.map((item, i) => (
+                                    <ActivityCard key={i} item={item} navigation={navigation} />
+                                ))}
+                            </View>
+                        </View>
+                    )}
+
+                    {!loading && recentActivity.length === 0 && (
+                        <Text style={styles.emptyText}>
+                            No activity yet. Start by uploading a record.
+                        </Text>
+                    )}
+                </ScrollView>
             </View>
 
             <BottomNav role="independent" />
+            {savedChatsOpen && <SavedChatsDrawer onClose={() => setSavedChatsOpen(false)} />}
         </SafeAreaView>
     )
 }
@@ -199,9 +231,9 @@ function ActivityCard({ item, navigation }) {
 
     const getInfo = () => {
         const fileName = item.data?.file_url?.split('/').pop()?.substring(37) || 'Medical Record'
-        if (item.type === 'record')  return { title: fileName,                                                                    sub: `Uploaded · ${fmt(item.date)}`,          screen: 'IndependentRecords' }
+        if (item.type === 'record') return { title: fileName, sub: `Uploaded · ${fmt(item.date)}`, screen: 'IndependentRecords' }
         if (item.type === 'summary') return { title: SUMMARY_LABELS[item.data?.summary_type] || item.data?.summary_type || 'Summary', sub: `Summary generated · ${fmt(item.date)}`, screen: 'IndependentAI' }
-        if (item.type === 'doctor')  return { title: `Dr. ${item.data?.doctor_name || ''}`,                                       sub: `Access granted · ${fmt(item.date)}`,      screen: 'IndependentProfile' }
+        if (item.type === 'doctor') return { title: `Dr. ${item.data?.doctor_name || ''}`, sub: `Access granted · ${fmt(item.date)}`, screen: 'IndependentProfile' }
         return null
     }
     const info = getInfo()

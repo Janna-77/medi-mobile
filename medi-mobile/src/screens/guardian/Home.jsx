@@ -1,14 +1,17 @@
+import { useState } from 'react'
 import {
     View, Text, TouchableOpacity, ScrollView,
-    SafeAreaView,
+    SafeAreaView, RefreshControl,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
+import Svg, { Path } from 'react-native-svg'
 import useGuardianDashboard from '../../hooks/useGuardianDashboard'
 import Header from '../../components/Header'
 import LoadingOverlay from '../../components/LoadingOverlay'
 import BottomNav from '../../components/BottomNav'
+import SavedChatsDrawer from '../../components/SavedChatsDrawer'
 import { useTheme } from '../../context/ThemeContext'
 
 const SUMMARY_LABELS = {
@@ -78,10 +81,12 @@ export default function GuardianHome() {
     const styles = getStyles(C)
 
     const {
-        loading, profile,
+        loading, refreshing, refresh, profile,
         dependentsCount, totalRecords, lastUpload, lastUploadRecord, latestSummary,
         recentActivity, ctaType,
     } = useGuardianDashboard()
+
+    const [savedChatsOpen, setSavedChatsOpen] = useState(false)
 
     const todayStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
     const firstName = profile?.full_name?.split(' ')[0] || ''
@@ -101,6 +106,14 @@ export default function GuardianHome() {
                 style={styles.scroll}
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={refresh}
+                        tintColor={C.accent}
+                        colors={[C.accent]}
+                    />
+                }
             >
                 {/* Greeting */}
                 <View style={styles.greetingBlock}>
@@ -136,6 +149,18 @@ export default function GuardianHome() {
                 {/* CTA */}
                 <CTAButton label={cta.label} sub={cta.sub} onPress={() => navigation.navigate(cta.screen)} />
 
+                {/* Saved Chats */}
+                <TouchableOpacity
+                    onPress={() => setSavedChatsOpen(true)}
+                    activeOpacity={0.8}
+                    style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.cardBg, borderWidth: 1, borderColor: C.cardBorder, borderRadius: 14, padding: 14 }}
+                >
+                    <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <Path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke={C.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </Svg>
+                    <Text style={{ color: C.text, fontSize: 14, fontWeight: '600' }}>Saved Chats</Text>
+                </TouchableOpacity>
+
                 {/* Recent activity */}
                 {recentActivity.length > 0 && (
                     <View style={{ marginTop: 32 }}>
@@ -155,6 +180,7 @@ export default function GuardianHome() {
             </View>
 
             <BottomNav role="guardian" />
+            {savedChatsOpen && <SavedChatsDrawer onClose={() => setSavedChatsOpen(false)} />}
         </SafeAreaView>
     )
 }

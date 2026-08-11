@@ -5,6 +5,10 @@ const api = axios.create({
     baseURL: process.env.EXPO_PUBLIC_API_BASE_URL,
 })
 
+// Registered by AuthContext so the interceptor can trigger a real logout
+let _authFailureHandler = null
+export function setAuthFailureHandler(fn) { _authFailureHandler = fn }
+
 // Automatically attach token to every request
 api.interceptors.request.use(async (config) => {
     const token = await AsyncStorage.getItem('medi_token')
@@ -23,10 +27,14 @@ api.interceptors.response.use(
             url.includes('/auth/verify')
         if (
             (error.response?.status === 401 || error.response?.status === 403) &&
-            !isAuthEndpoint
+            !isAuthEndpoint &&
+            !error.config?._skipAuthFailure
         ) {
-            await AsyncStorage.removeItem('medi_token')
-            // Navigation reset is handled by AuthContext + navigator in App.js
+            if (_authFailureHandler) {
+                _authFailureHandler()
+            } else {
+                await AsyncStorage.removeItem('medi_token')
+            }
         }
         return Promise.reject(error)
     }

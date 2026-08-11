@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
     View, Text, TouchableOpacity, TextInput, ScrollView,
-    SafeAreaView, Modal, Pressable, DeviceEventEmitter,
+    SafeAreaView, Modal, Pressable, DeviceEventEmitter, RefreshControl,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import Svg, { Path, Polyline, Line, Circle } from 'react-native-svg'
@@ -9,6 +9,9 @@ import Header from '../../components/Header'
 import LoadingOverlay from '../../components/LoadingOverlay'
 import api from '../../api/axios'
 import { useTheme } from '../../context/ThemeContext'
+import { getCache, setCache, clearCache } from '../../utils/pageCache'
+
+const CACHE_KEY = 'doctor_patients'
 
 function makeC(theme) {
     return {
@@ -44,30 +47,48 @@ export default function DoctorPatients() {
     const { theme } = useTheme()
     const C = makeC(theme)
 
-    const [patients, setPatients] = useState([])
-    const [pending, setPending] = useState([])
-    const [loading, setLoading] = useState(true)
+    const _c = getCache(CACHE_KEY)
+    const [patients, setPatients] = useState(_c?.patients ?? [])
+    const [pending, setPending] = useState(_c?.pending ?? [])
+    const [loading, setLoading] = useState(!_c)
     const [search, setSearch] = useState('')
     const [filter, setFilter] = useState('all')
     const [filterOpen, setFilterOpen] = useState(false)
+    const [refreshing, setRefreshing] = useState(false)
 
-    const fetchAll = () => {
+    const fetchAll = (force = false) => {
+        const cached = getCache(CACHE_KEY)
+        if (cached && !force) {
+            setPatients(cached.patients)
+            setPending(cached.pending)
+            setLoading(false)
+            return
+        }
         setLoading(true)
         Promise.all([
             api.get('/doctors/patients'),
             api.get('/doctors/pending'),
         ]).then(([patientsRes, pendingRes]) => {
-            setPatients(patientsRes.data)
-            setPending(pendingRes.data)
+            const pts = patientsRes.data
+            const pnd = pendingRes.data
+            setPatients(pts)
+            setPending(pnd)
+            setCache(CACHE_KEY, { patients: pts, pending: pnd })
         }).catch(console.error)
-            .finally(() => setLoading(false))
+            .finally(() => { setLoading(false); setRefreshing(false) })
+    }
+
+    const refresh = () => {
+        clearCache(CACHE_KEY)
+        setRefreshing(true)
+        fetchAll(true)
     }
 
     useEffect(() => {
         fetchAll()
-        const sub = DeviceEventEmitter.addListener('doctor_access_changed', fetchAll)
+        const sub = DeviceEventEmitter.addListener('doctor_access_changed', () => { clearCache(CACHE_KEY); fetchAll(true) })
         return () => sub.remove()
-    }, [])
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     // After acting from this screen, mark the matching notification as read
     const markRelatedNotifRead = (accessId) => {
@@ -124,6 +145,7 @@ export default function DoctorPatients() {
                 contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} colors={[C.accent]} />}
             >
                 {/* Search + filter row */}
                 <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
