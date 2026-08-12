@@ -29,6 +29,9 @@ import GuardianAddIndependent from '../screens/auth/GuardianAddIndependent'
 import DoctorAddGuardian from '../screens/auth/DoctorAddGuardian'
 import DoctorAddIndependent from '../screens/auth/DoctorAddIndependent'
 
+import DependentHome from '../screens/dependent/Home'
+import DependentAI from '../screens/dependent/AI'
+import DependentSummary from '../screens/dependent/DependentSummary'
 // ── Placeholder for unbuilt screens ─────────────────────────────────────────
 function Soon({ route }) {
     return (
@@ -78,10 +81,10 @@ export default function MainNavigator() {
             <Stack.Screen name="PatientView" component={PatientView} />
 
             {/* ── Dependent ── */}
-            <Stack.Screen name="DependentHome" component={Soon} />
-            <Stack.Screen name="DependentAI" component={Soon} />
+            <Stack.Screen name="DependentHome" component={DependentHome} />
+            <Stack.Screen name="DependentAI" component={DependentAI} />
+            <Stack.Screen name="DependentSummary" component={DependentSummary} />
             <Stack.Screen name="CallGuardian" component={Soon} />
-            <Stack.Screen name="ViewR/S" component={Soon} />
 
             {/* ── Shared ── */}
             <Stack.Screen name="Notifications" component={Notifications} />

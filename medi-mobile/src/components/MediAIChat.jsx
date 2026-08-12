@@ -207,7 +207,7 @@ export default function MediAIChat({ role, dependentId, dependentSelector, locke
             const title = messages[0]?.message?.slice(0, 60) || 'Medi AI Chat'
             const body = { messages, title }
             if (dependentId) body.dependent_id = dependentId
-            await api.post('/users/save-chat', body)
+            await api.post('/users/save-chat', body, { _skipAuthFailure: true })
             setSaveSuccess(true)
             setTimeout(() => setSaveSuccess(false), 2500)
         } catch { /* silent */ }
@@ -215,14 +215,6 @@ export default function MediAIChat({ role, dependentId, dependentSelector, locke
     }
 
     const subsScreen = 'Subscriptions'
-
-    if (loading) {
-        return (
-            <View style={{ flex: 1, backgroundColor: C.bg }}>
-                <LoadingOverlay visible role={role} />
-            </View>
-        )
-    }
 
     return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -244,7 +236,7 @@ export default function MediAIChat({ role, dependentId, dependentSelector, locke
                         </View>
                         <Text style={{ color: C.textSub, fontSize: 12 }}>Ask questions about your medical records</Text>
                         {showInfo && (
-                            <View style={{ position: 'absolute', top: 44, left: 0, right: 0, zIndex: 99, elevation: 10, backgroundColor: C.cardBg, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: C.cardBorder }}>
+                            <View style={{ position: 'absolute', top: 44, left: 0, right: 0, zIndex: 99, elevation: 10, backgroundColor: C.modalBg, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: C.cardBorder }}>
                                 <Text style={{ color: C.text, fontSize: 12, lineHeight: 18 }}>
                                     I can help explain your medical records, lab results, diagnoses, and medical terms in simple language. Medi AI does not diagnose or treat medical conditions.
                                 </Text>
@@ -265,18 +257,20 @@ export default function MediAIChat({ role, dependentId, dependentSelector, locke
                                 >
                                     <Text style={{ color: '#fc8181', fontSize: 11, fontWeight: '700' }}>Clear chat</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={handleSaveChat}
-                                    disabled={saving}
-                                    style={{ backgroundColor: saveSuccess ? 'rgba(56,161,105,0.15)' : C.cardBg, borderWidth: 1, borderColor: saveSuccess ? 'rgba(56,161,105,0.4)' : C.cardBorder, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, opacity: saving ? 0.6 : 1 }}
-                                >
-                                    <Text style={{ color: saveSuccess ? '#38a169' : C.text, fontSize: 11, fontWeight: '700' }}>
-                                        {saving ? 'Saving…' : saveSuccess ? '✓ Saved' : 'Save chat'}
-                                    </Text>
-                                </TouchableOpacity>
+                                {role !== 'dependent' && (
+                                    <TouchableOpacity
+                                        onPress={handleSaveChat}
+                                        disabled={saving}
+                                        style={{ backgroundColor: saveSuccess ? 'rgba(56,161,105,0.15)' : C.cardBg, borderWidth: 1, borderColor: saveSuccess ? 'rgba(56,161,105,0.4)' : C.cardBorder, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, opacity: saving ? 0.6 : 1 }}
+                                    >
+                                        <Text style={{ color: saveSuccess ? '#38a169' : C.text, fontSize: 11, fontWeight: '700' }}>
+                                            {saving ? 'Saving…' : saveSuccess ? '✓ Saved' : 'Save chat'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
                             </>
                         )}
-                        {/* View saved chats — always visible for independent, visible after dep selected for guardian */}
+                        {/* View saved chats */}
                         {(role === 'independent' || (role === 'guardian' && dependentId)) && (
                             <TouchableOpacity onPress={() => setSavedChatsOpen(true)} activeOpacity={0.7}>
                                 <Text style={{ color: C.textSub, fontSize: 11, fontWeight: '600', textDecorationLine: 'underline' }}>
@@ -304,6 +298,7 @@ export default function MediAIChat({ role, dependentId, dependentSelector, locke
                         ref={scrollRef}
                         contentContainerStyle={{ padding: 16, gap: 12 }}
                         showsVerticalScrollIndicator={false}
+                        keyboardDismissMode="on-drag"
                         keyboardShouldPersistTaps="handled"
                         onScroll={e => SESSION_SCROLL.set(chatKey, e.nativeEvent.contentOffset.y)}
                         scrollEventThrottle={100}
@@ -337,6 +332,21 @@ export default function MediAIChat({ role, dependentId, dependentSelector, locke
                                 </View>
                             </View>
                         ))}
+                        {loading && (
+                            <View style={{ alignSelf: 'flex-start', maxWidth: '80%' }}>
+                                <View style={{
+                                    backgroundColor: C.inputBg,
+                                    borderWidth: 1, borderColor: C.cardBorder,
+                                    borderRadius: 16, borderBottomLeftRadius: 4,
+                                    padding: 14,
+                                }}>
+                                    <Text style={{ color: C.text, fontWeight: '700', fontSize: 11, marginBottom: 6, opacity: 0.7 }}>
+                                        MEDI AI{isPro ? ' PRO' : ''}
+                                    </Text>
+                                    <Text style={{ color: C.textSub, fontSize: 14 }}>Thinking...</Text>
+                                </View>
+                            </View>
+                        )}
                     </ScrollView>
                 </View>
 

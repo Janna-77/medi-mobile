@@ -87,9 +87,7 @@ export default function Login() {
             const response = await api.post('/auth/login-dependent', depData)
             const { token } = response.data
             const decoded = JSON.parse(atob(token.split('.')[1]))
-            const { dependentId } = decoded
             login(token, 'dependent', decoded.userId)
-            navigation.navigate('DependentHome', { dependentId })
         } catch (err) {
             setError(err.response?.data?.error || 'Login failed')
         } finally {
