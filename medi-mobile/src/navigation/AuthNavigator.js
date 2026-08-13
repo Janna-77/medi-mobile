@@ -1,5 +1,4 @@
 import { createStackNavigator } from '@react-navigation/stack'
-import { View, Text, StyleSheet } from 'react-native'
 
 // Converted screens
 import Login from '../screens/auth/Login'
@@ -14,14 +13,8 @@ import GuardianAddDoctor from '../screens/auth/GuardianAddDoctor'
 import GuardianAddIndependent from '../screens/auth/GuardianAddIndependent'
 import DoctorAddGuardian from '../screens/auth/DoctorAddGuardian'
 import DoctorAddIndependent from '../screens/auth/DoctorAddIndependent'
+import About from '../screens/shared/About'
 
-// TODO: swap placeholders as each screen is converted
-const Placeholder = ({ route }) => (
-    <View style={styles.placeholder}>
-        <Text style={styles.text}>{route.name}</Text>
-        <Text style={styles.sub}>Not converted yet</Text>
-    </View>
-)
 
 const Stack = createStackNavigator()
 
@@ -30,7 +23,6 @@ export default function AuthNavigator() {
         <Stack.Navigator screenOptions={{ headerShown: false, cardStyle: { flex: 1 }, animationEnabled: false }}>
             <Stack.Screen name="Login" component={Login} />
             <Stack.Screen name="SignupChoice" component={SignupChoice} />
-            <Stack.Screen name="Verification" component={Placeholder} />
             <Stack.Screen name="SignupIndependent" component={SignupIndependent} />
             <Stack.Screen name="SignupGuardian" component={SignupGuardian} />
             <Stack.Screen name="SignupDoctor" component={SignupDoctor} />
@@ -41,12 +33,7 @@ export default function AuthNavigator() {
             <Stack.Screen name="GuardianAddIndependent" component={GuardianAddIndependent} />
             <Stack.Screen name="DoctorAddGuardian" component={DoctorAddGuardian} />
             <Stack.Screen name="DoctorAddIndependent" component={DoctorAddIndependent} />
+            <Stack.Screen name="About" component={About} />
         </Stack.Navigator>
     )
 }
-
-const styles = StyleSheet.create({
-    placeholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f0f0' },
-    text: { fontSize: 20, fontWeight: '700', color: '#333' },
-    sub: { fontSize: 14, color: '#888', marginTop: 8 },
-})

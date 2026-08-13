@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import {
-    View, Text, TouchableOpacity, ScrollView, StyleSheet, Linking, SafeAreaView,
+    View, Text, Image, TouchableOpacity, ScrollView, StyleSheet, Linking, SafeAreaView,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
+import Svg, { Polyline } from 'react-native-svg'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
+import { useTheme } from '../../context/ThemeContext'
 import Header from '../../components/Header'
 
 const COLORS = {
@@ -23,7 +25,7 @@ const COLORS = {
         cardBg: 'rgba(50,10,35,0.92)',
         cardBorder: 'rgba(160,55,105,0.35)',
         heading: '#f4d0e0',
-        para: '#c090b0',
+        para: '#eae4e8ff',
         accent: '#e87090',
         divider: 'rgba(160,55,105,0.4)',
         accordionBorderActive: 'rgba(232,112,144,0.4)',
@@ -33,7 +35,7 @@ const COLORS = {
         cardBg: 'rgba(30,12,55,0.92)',
         cardBorder: 'rgba(120,70,200,0.35)',
         heading: '#e8d8f8',
-        para: '#b090d8',
+        para: '#dbd1e8ff',
         accent: '#a78bfa',
         divider: 'rgba(120,70,200,0.4)',
         accordionBorderActive: 'rgba(139,92,246,0.4)',
@@ -44,19 +46,43 @@ export default function About() {
     const navigation = useNavigation()
     const { t } = useTranslation()
     const { user } = useAuth()
+    const { theme } = useTheme()
     const role = user?.role || 'independent'
-    const c = COLORS[role] || COLORS.independent
+
+    const c = user && theme ? {
+        bg: theme.pageBg,
+        cardBg: theme.cardBg,
+        cardBorder: theme.cardBorder,
+        heading: theme.textPrimary,
+        para: theme.textSecondary,
+        accent: theme.accent,
+        divider: theme.cardBorder,
+        accordionBorderActive: theme.cardBorderActive,
+    } : (COLORS[role] || COLORS.independent)
 
     return (
         <SafeAreaView style={[styles.root, { backgroundColor: c.bg }]}>
-            {user && <Header role={role} />}
+            {user
+                ? <Header role={role} />
+                : (
+                    <View style={styles.anonTopbar}>
+                        <TouchableOpacity onPress={() => navigation.navigate('SignupChoice')} activeOpacity={0.8} style={styles.anonArrow}>
+                            <Svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                                <Polyline points="15,18 9,12 15,6" stroke={c.para} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                            </Svg>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => navigation.navigate('SignupChoice')} activeOpacity={0.8}>
+                            <Image
+                                source={require('../../../assets/logo.png')}
+                                style={styles.anonLogo}
+                                resizeMode="contain"
+                            />
+                        </TouchableOpacity>
+                        <View style={styles.anonArrow} />
+                    </View>
+                )
+            }
             <ScrollView contentContainerStyle={styles.content}>
-
-                {!user && (
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginBottom: 24 }}>
-                        <Text style={[styles.backLink, { color: c.accent }]}>← Back</Text>
-                    </TouchableOpacity>
-                )}
 
                 <Text style={[styles.title, { color: c.heading }]}>{t('about.title')}</Text>
 
@@ -139,7 +165,9 @@ function Accordion({ title, children, c }) {
 const styles = StyleSheet.create({
     root: { flex: 1 },
     content: { padding: 20, paddingBottom: 48 },
-    backLink: { fontSize: 14, fontWeight: '600' },
+    anonTopbar: { height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
+    anonLogo: { width: 60, height: 60 },
+    anonArrow: { width: 30, height: 30, borderRadius: 9, backgroundColor: 'rgba(122,168,196,0.2)', borderWidth: 1, borderColor: 'rgba(122,168,196,0.3)', justifyContent: 'center', alignItems: 'center' },
     title: { fontSize: 30, fontWeight: '700', letterSpacing: -0.3, marginBottom: 20 },
     para: { fontSize: 14, lineHeight: 24 },
     card: { borderRadius: 18, padding: 24, borderWidth: 1, marginBottom: 0 },

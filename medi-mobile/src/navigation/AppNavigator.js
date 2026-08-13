@@ -18,7 +18,7 @@ export default function AppNavigator() {
     }
 
     return (
-        <NavigationContainer>
+        <NavigationContainer key={user ? 'authed' : 'guest'}>
             {user ? <MainNavigator /> : <AuthNavigator />}
         </NavigationContainer>
     )
