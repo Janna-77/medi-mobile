@@ -1,10 +1,23 @@
 import { useState, useEffect, useRef } from 'react'
-import { View, Image, TouchableOpacity, StyleSheet, Pressable } from 'react-native'
+import { View, Image, TouchableOpacity, StyleSheet, Pressable, DeviceEventEmitter } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import api from '../api/axios'
 import { useTheme } from '../context/ThemeContext'
 import NotificationDrawer from './NotificationDrawer'
 import Svg, { Path, Polyline } from 'react-native-svg'
+
+const _isDoctorMsg   = (msg) => msg.startsWith('ACCESS_REQUEST:') || msg.includes('doctor account')
+const _isGuardianMsg = (msg) => msg.includes('requested to link') || msg.startsWith('SUMMARY_REQUEST:')
+const _isIndepMsg    = (msg) => !_isDoctorMsg(msg) && !_isGuardianMsg(msg)
+
+const countUnreadForRole = (notifs, role) => {
+    const byRole = notifs.filter(n => {
+        if (role === 'doctor')   return _isDoctorMsg(n.message)
+        if (role === 'guardian') return _isGuardianMsg(n.message)
+        return _isIndepMsg(n.message)
+    })
+    return byRole.filter(n => !n.is_read).length
+}
 
 function ProfileBtn({ onPress }) {
     const [pressed, setPressed] = useState(false)
@@ -119,8 +132,15 @@ export default function Header({ role }) {
     }
 
     useEffect(() => {
-        api.get('/notifications').then(r => setUnreadCount(r.data.filter(n => !n.is_read).length)).catch(() => {})
+        api.get('/notifications').then(r => setUnreadCount(countUnreadForRole(r.data, role))).catch(() => {})
     }, [])
+
+    useEffect(() => {
+        const sub = DeviceEventEmitter.addListener('notifs_updated', (allNotifs) => {
+            setUnreadCount(countUnreadForRole(allNotifs, role))
+        })
+        return () => sub.remove()
+    }, [role])
 
     return (
         <>

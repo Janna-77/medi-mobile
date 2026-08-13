@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
     View, Text, TextInput, TouchableOpacity, Modal, Animated,
-    ScrollView, StyleSheet, Pressable, DeviceEventEmitter,
+    FlatList, StyleSheet, Pressable, DeviceEventEmitter,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import api from '../api/axios'
@@ -27,9 +27,9 @@ const isDoctorMsg   = (msg) => isAccessRequest(msg) || isDoctorAccount(msg)
 const isIndepMsg    = (msg) => !isAccessRequest(msg) && !isDoctorAccount(msg) && !isLinkRequest(msg) && !isSummaryReq(msg)
 
 const GLASS_BG = {
-    independent: 'rgba(10,40,80,0.97)',
-    guardian:    'rgba(60,10,45,0.97)',
-    doctor:      'rgba(40,20,70,0.97)',
+    independent: 'rgba(10,40,80,0.90)',
+    guardian:    'rgba(60,10,45,0.90)',
+    doctor:      'rgba(40,20,70,0.90)',
 }
 const DOT_COLOR = {
     independent: '#d6e8f7',
@@ -40,6 +40,7 @@ const DOT_COLOR = {
 export default function NotificationDrawer({ role, onClose }) {
     const [notifications, setNotifications] = useState([])
     const [loading, setLoading] = useState(true)
+    const [displayCount, setDisplayCount] = useState(20)
     const [search, setSearch] = useState('')
     const [roleFilter, setRoleFilter] = useState(role === 'independent' ? 'independent' : 'guardian')
     const [isGuardianAndIndep, setIsGuardianAndIndep] = useState(false)
@@ -78,19 +79,20 @@ export default function NotificationDrawer({ role, onClose }) {
 
     useEffect(() => {
         if (!showingGuardian) return
-        api.get('/dependents').then(res => setDependents(res.data)).catch(() => {})
+        api.get('/dependents').then(res => setDependents(Array.isArray(res.data) ? res.data : [])).catch(() => {})
     }, [showingGuardian])
 
     // ── filter ──────────────────────────────────────────────────────────────
-    let visible = notifications
+    const safeNotifs = Array.isArray(notifications) ? notifications : []
+    let visible = safeNotifs
     if (role === 'doctor') {
-        visible = notifications.filter(n => isDoctorMsg(n.message))
+        visible = safeNotifs.filter(n => isDoctorMsg(n.message))
     } else if (isGuardianAndIndep) {
-        visible = notifications.filter(n => roleFilter === 'guardian' ? isGuardianMsg(n.message) : isIndepMsg(n.message))
+        visible = safeNotifs.filter(n => roleFilter === 'guardian' ? isGuardianMsg(n.message) : isIndepMsg(n.message))
     } else if (role === 'guardian') {
-        visible = notifications.filter(n => isGuardianMsg(n.message))
+        visible = safeNotifs.filter(n => isGuardianMsg(n.message))
     } else {
-        visible = notifications.filter(n => isIndepMsg(n.message))
+        visible = safeNotifs.filter(n => isIndepMsg(n.message))
     }
 
     if (selectedDep !== 'all') {
@@ -110,11 +112,15 @@ export default function NotificationDrawer({ role, onClose }) {
     // ── actions ─────────────────────────────────────────────────────────────
     const markRead = async (id) => {
         await api.patch(`/notifications/${id}/read`)
-        setNotifications(prev => prev.map(n => n.notification_id === id ? { ...n, is_read: true } : n))
+        const updated = safeNotifs.map(n => n.notification_id === id ? { ...n, is_read: true } : n)
+        setNotifications(updated)
+        DeviceEventEmitter.emit('notifs_updated', updated)
     }
     const markAllRead = async () => {
         await api.patch('/notifications/read-all')
-        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+        const updated = safeNotifs.map(n => ({ ...n, is_read: true }))
+        setNotifications(updated)
+        DeviceEventEmitter.emit('notifs_updated', updated)
     }
     const approveLink    = async (n) => { await api.post('/dependents/approve-link',    { notification_id: n.notification_id }); await markRead(n.notification_id) }
     const denyLink       = async (n) => { await api.post('/dependents/deny-link',       { notification_id: n.notification_id }); await markRead(n.notification_id) }
@@ -122,6 +128,9 @@ export default function NotificationDrawer({ role, onClose }) {
     const denySummary    = async (n) => { await api.post('/dependents/deny-summary',   { notification_id: n.notification_id }); await markRead(n.notification_id) }
     const approveAccess  = async (n) => { const { accessId } = parseAccessReq(n.message); await api.patch(`/doctors/access/${accessId}/approve`); await markRead(n.notification_id); DeviceEventEmitter.emit('doctor_access_changed') }
     const denyAccess     = async (n) => { const { accessId } = parseAccessReq(n.message); await api.patch(`/doctors/access/${accessId}/deny`);    await markRead(n.notification_id); DeviceEventEmitter.emit('doctor_access_changed') }
+
+    // reset display window when search or filters change
+    useEffect(() => { setDisplayCount(20) }, [search, roleFilter, selectedDep])
 
     const glass    = GLASS_BG[role]    ?? GLASS_BG.independent
     const dotColor = DOT_COLOR[role]   ?? DOT_COLOR.independent
@@ -209,16 +218,14 @@ export default function NotificationDrawer({ role, onClose }) {
                 </View>
 
                 {/* List */}
-                <ScrollView style={styles.list} contentContainerStyle={{ gap: 10, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
-                    {loading ? (
-                        <><Skeleton /><Skeleton /></>
-                    ) : filtered.length === 0 ? (
-                        <View style={styles.emptyBox}>
-                            <Text style={{ fontSize: 32, marginBottom: 10 }}>🔔</Text>
-                            <Text style={styles.emptyText}>{search ? t('common.Nomatchingnotifications') : t('common.Nonotifications')}</Text>
-                        </View>
-                    ) : filtered.map(n => (
-                        <View key={n.notification_id} style={[styles.notifCard, { backgroundColor: n.is_read ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.10)', borderColor: n.is_read ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.14)' }]}>
+                <FlatList
+                    style={styles.list}
+                    contentContainerStyle={{ gap: 10, paddingBottom: 24 }}
+                    showsVerticalScrollIndicator={false}
+                    data={loading ? [] : filtered.slice(0, displayCount)}
+                    keyExtractor={n => String(n.notification_id)}
+                    renderItem={({ item: n }) => (
+                        <View style={[styles.notifCard, { backgroundColor: n.is_read ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.10)', borderColor: n.is_read ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.14)' }]}>
                             <View style={styles.notifRow}>
                                 <Text style={[styles.notifText, { color: n.is_read ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.92)' }]}>
                                     {!n.is_read && <Text style={{ color: dotColor }}>● </Text>}
@@ -237,8 +244,21 @@ export default function NotificationDrawer({ role, onClose }) {
                                 </TouchableOpacity>
                             )}
                         </View>
-                    ))}
-                </ScrollView>
+                    )}
+                    onEndReached={() => setDisplayCount(c => c + 20)}
+                    onEndReachedThreshold={0.3}
+                    ListFooterComponent={filtered.length > displayCount ? <Skeleton /> : null}
+                    ListEmptyComponent={
+                        loading ? (
+                            <View style={{ gap: 10 }}><Skeleton /><Skeleton /></View>
+                        ) : (
+                            <View style={styles.emptyBox}>
+                                <Text style={{ fontSize: 32, marginBottom: 10 }}>🔔</Text>
+                                <Text style={styles.emptyText}>{search ? t('common.Nomatchingnotifications') : t('common.Nonotifications')}</Text>
+                            </View>
+                        )
+                    }
+                />
             </Animated.View>
         </Modal>
     )

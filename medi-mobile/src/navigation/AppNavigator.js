@@ -6,7 +6,7 @@ import AuthNavigator from './AuthNavigator'
 import MainNavigator from './MainNavigator'
 
 export default function AppNavigator() {
-    const { user, loading } = useAuth()
+    const { user, loading, logoutKey } = useAuth()
     const { themeReady } = useTheme()
 
     if (loading || !themeReady) {
@@ -18,8 +18,8 @@ export default function AppNavigator() {
     }
 
     return (
-        <NavigationContainer key={user ? 'authed' : 'guest'}>
-            {user ? <MainNavigator /> : <AuthNavigator />}
+        <NavigationContainer>
+            {user ? <MainNavigator /> : <AuthNavigator key={logoutKey} />}
         </NavigationContainer>
     )
 }

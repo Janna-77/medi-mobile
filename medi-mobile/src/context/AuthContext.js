@@ -12,6 +12,7 @@ const parseMode = (raw) =>
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null)
     const [loading, setLoading] = useState(true)
+    const [logoutKey, setLogoutKey] = useState(0)
 
     useEffect(() => {
         (async () => {
@@ -63,6 +64,7 @@ export const AuthProvider = ({ children }) => {
         clearAllCaches()
         await AsyncStorage.multiRemove(['medi_token', 'medi_role', 'medi_userId', 'medi_mode'])
         setUser(null)
+        setLogoutKey(k => k + 1)
     }
 
     // Give the axios interceptor access to the real logout so a 401 properly
@@ -88,7 +90,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     return (
-        <authContext.Provider value={{ user, login, logout, loading, switchAccount }}>
+        <authContext.Provider value={{ user, login, logout, loading, logoutKey, switchAccount }}>
             {children}
         </authContext.Provider>
     )
