@@ -11,6 +11,12 @@ import DoctorHome from '../screens/doctor/Home'
 import DoctorProfile from '../screens/doctor/Profile'
 import DoctorPatients from '../screens/doctor/Patients'
 import PatientView from '../screens/doctor/PatientView'
+import MedicalLicenceExpiryLock from '../components/MedicalLicenceExpiryLock'
+
+const LockedDoctorHome     = (props) => <MedicalLicenceExpiryLock><DoctorHome     {...props} /></MedicalLicenceExpiryLock>
+const LockedDoctorProfile  = (props) => <MedicalLicenceExpiryLock><DoctorProfile  {...props} /></MedicalLicenceExpiryLock>
+const LockedDoctorPatients = (props) => <MedicalLicenceExpiryLock><DoctorPatients {...props} /></MedicalLicenceExpiryLock>
+const LockedPatientView    = (props) => <MedicalLicenceExpiryLock><PatientView    {...props} /></MedicalLicenceExpiryLock>
 import IndependentRecords from '../screens/independent/Records'
 import IndependentAI from '../screens/independent/AI'
 import GuardianRecords from '../screens/guardian/Records'
@@ -75,10 +81,10 @@ export default function MainNavigator() {
             <Stack.Screen name="GuardianAI" component={GuardianAI} />
 
             {/* ── Doctor ── */}
-            <Stack.Screen name="DoctorHome" component={DoctorHome} />
-            <Stack.Screen name="DoctorProfile" component={DoctorProfile} />
-            <Stack.Screen name="DoctorPatients" component={DoctorPatients} />
-            <Stack.Screen name="PatientView" component={PatientView} />
+            <Stack.Screen name="DoctorHome" component={LockedDoctorHome} />
+            <Stack.Screen name="DoctorProfile" component={LockedDoctorProfile} />
+            <Stack.Screen name="DoctorPatients" component={LockedDoctorPatients} />
+            <Stack.Screen name="PatientView" component={LockedPatientView} />
 
             {/* ── Dependent ── */}
             <Stack.Screen name="DependentHome" component={DependentHome} />

@@ -151,7 +151,7 @@ export default function Header({ role }) {
                         <ProfileBtn onPress={() => navigation.navigate('DoctorProfile')} />
                     ) : null}
                     <NavArrow direction="left"  onPress={() => navigation.goBack()} disabled={!canGoBack} />
-                    <NavArrow direction="right" onPress={handleForward}            disabled={!canGoForward} />
+                    {canGoForward && <NavArrow direction="right" onPress={handleForward} disabled={false} />}
                 </View>
 
                 <TouchableOpacity onPress={() => navigation.navigate(homeScreen)} activeOpacity={0.8}>

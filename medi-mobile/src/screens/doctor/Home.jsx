@@ -141,7 +141,6 @@ export default function DoctorHome() {
         <SafeAreaView style={styles.safe}>
             <Header role="doctor" />
             <View style={{ flex: 1 }}>
-            <LoadingOverlay visible={loading} role="doctor" />
             <ScrollView
                 style={styles.scroll}
                 contentContainerStyle={styles.content}
@@ -194,6 +193,7 @@ export default function DoctorHome() {
                 )}
             </ScrollView>
             </View>
+            <LoadingOverlay visible={loading} role="doctor" />
         </SafeAreaView>
     )
 }

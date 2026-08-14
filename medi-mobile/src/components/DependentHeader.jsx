@@ -113,7 +113,7 @@ export default function DependentHeader({ dependentId }) {
         <View style={[styles.header, { paddingTop: insets.top, backgroundColor: DC.topbarBg, borderBottomColor: DC.topbarBorder }]}>
             <View style={styles.arrowGroup}>
                 <NavArrow direction="left" onPress={() => navigation.goBack()} disabled={!canGoBack} DC={DC} />
-                <NavArrow direction="right" onPress={handleForward} disabled={!canGoForward} DC={DC} />
+                {canGoForward && <NavArrow direction="right" onPress={handleForward} disabled={false} DC={DC} />}
             </View>
 
             <TouchableOpacity onPress={canGoBack ? () => navigation.goBack() : undefined} activeOpacity={canGoBack ? 0.8 : 1}>
